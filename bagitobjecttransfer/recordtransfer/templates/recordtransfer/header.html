@@ -1,76 +1,251 @@
 {% load static %}
 {% load i18n %}
 
-<header class="header">
-    <nav class="main-header-content">
-        <ul class="main-navbar">
-            <li class="nav-logo">
-                <a class="nav-link" href="{% url 'recordtransfer:index' %}" title="Go to home page">
-                    <img id="app-logo" src="{% static 'recordtransfer/img/nctrlogo_flame_150x150px.png'%}">
-                    <span id="app-title" class="title-text">{% trans "NCTR Record Transfer" %}<span>
-                </a>
+  <div class="skip-links">
+    <a href="#main-content" class="skip-links__link u-link-decoration">
+      Skip to main content
+    </a>
+  </div>
+  <div class="dialog-off-canvas-main-canvas l-canvas" data-off-canvas-main-canvas>
+<header role="banner" class="site-header site-header--faculty">
+              <div class="territory-acknowledgement js-territory-acknowledgement">
+    <div class="territory-acknowledgement__inner">
+      <p class="territory-acknowledgement__message">
+        The University of Manitoba campuses are located on original lands of Anishinaabeg, Cree, Oji-Cree, Dakota, and Dene peoples, and on the homeland of the Métis Nation. <a href="http://umanitoba.ca/admin/indigenous_connect/5728.html" tabindex="-1"><strong>More</strong></a>
+      </p>
+    </div>
+  </div>
+  <div class="l-container">
+    <section class="site-header__top">
+      <button class="territory-button js-toggle-territory-acknowledgement">Territory acknowledgement</button>
+      <div class="site-header__top-navs">
+                <nav role="navigation" aria-labelledby="block-functional-menu" id="block-functional" data-block-plugin-id="system_menu_block:functional-menu" class="block block-menu navigation menu--functional">
+          <h2 class="visually-hidden" id="block-functional-menu">Functional Menu</h2>
+          <ul class="menu">
+            <li class="menu-item">
+              <a href="https://umanitoba.ca/current-students" class="">Current students</a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{% url 'recordtransfer:index' %}">
-                    {% trans "Home" %}
-                </a>
+            <li class="menu-item">
+              <a href="https://umanitoba.ca/faculty-and-staff" class="">Faculty and staff</a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{% url 'recordtransfer:about' %}">
-                    {% trans "About" %}
-                </a>
+            <li class="menu-item">
+              <a href="https://umanitoba.ca/community/alumni" class="">Alumni</a>
             </li>
-            {% if user.is_staff %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'admin:index' %}">
-                        {% trans "Admin" %}
-                    </a>
-                </li>
-            {% endif %}
-            {% if user.is_authenticated %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'recordtransfer:userprofile' %}">
-                        {% trans "Profile" %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link main" href="{% url 'recordtransfer:transfer' %}">
-                        {% trans "Transfer" %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link main" href="{% url 'logout' %}">
-                        {% trans "Logout" %}
-                    </a>
-                </li>
-            {% elif not user.is_authenticated %}
-                {% if SIGN_UP_ENABLED %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'recordtransfer:createaccount' %}">
-                            {% trans "Sign Up" %}
-                        </a>
-                    </li>
-                {% endif %}
-                {% if 'login' not in request.path %}
-                    <li class="nav-item">
-                        <a class="nav-link main" href="{% url 'login' %}">
-                            {% trans "Log In" %}
-                        </a>
-                    </li>
-                {% endif %}
-            {% endif %}
-            <span class="toggle-container">
-                <li class="nav-toggle-open">
-                    <a class="nav-link" href="#">
-                        <img height="20" src="{% static 'recordtransfer/img/menu_64x64px.png'%}">
-                    </a>
-                </li>
-                <li class="nav-toggle-close">
-                    <a class="nav-link" href="#">
-                        <img height="20" src="{% static 'recordtransfer/img/close_menu_64x64px.png'%}">
-                    </a>
-                </li>
-            </span>
+            <li class="menu-item">
+              <a href="https://umanitoba.ca/webmail/">Email</a>
+            </li>
+            <li class="menu-item">
+              <a href="https://news.umanitoba.ca/">News and events</a>
+            </li>
+          </ul>
+        </nav>
+                <nav role="navigation" aria-labelledby="block-global-cta-menu" id="block-global-cta" data-block-plugin-id="system_menu_block:global-cta-menu" class="block block-menu navigation menu--global-cta">
+          <h2 class="visually-hidden" id="block-global-cta-menu">Call To Action Menu</h2>
+          <ul class="menu">
+            <li class="menu-item">
+              <a href="https://umanitoba.ca/visit" class="">Visit</a>
+            </li>
+            <li class="menu-item">
+              <a href="https://umanitoba.ca/admissions/apply-um" class="">Apply</a>
+            </li>
+            <li class="menu-item">
+              <a href="https://umanitoba.ca/community/giving" class="">Donate</a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </section>
+    <section class="site-header__bottom">
+                      <a href="https://umanitoba.ca/" class="site-header__faculty-logo">
+                          <img src="{% static 'recordtransfer/img/uofm_logo.svg'%}"></a>
+        <div>
+          <h2 class="site-header__faculty-title">
+            <a href="https://umanitoba.ca/libraries" class="site-header__faculty-link">Libraries</a>
+          </h2>
+          <nav role="navigation" aria-labelledby="block-main-menu" id="block-main"
+            data-block-plugin-id="system_menu_block:main-menu"
+            class="block block-menu navigation menu--main js-more-menu">
+            <h2 class="visually-hidden" id="block-main-menu">Main Menu</h2>
+            <ul class="menu">
+                <li class="menu-item"><a href="https://umanitoba.ca/libraries/access-materials" class="">Access materials</a></li>
+                <li class="menu-item"><a href="https://umanitoba.ca/libraries/help-and-services" class="">Help and services</a></li>
+                <li class="menu-item"><a href="https://umanitoba.ca/libraries/locations-and-facilities" class="">Locations and facilities</a></li>
+                <li class="menu-item"><a href="https://umanitoba.ca/libraries/accessibility-services" class="">Accessibility services</a></li>
+            </ul>
+          </nav>
+        </div>
+        <button class="site-header__faculty-search js-toggle-search">
+          <svg class="icon-search site-header__search-icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-search"></use>
+</svg>
+<svg class="icon-close-thin site-header__search-close">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-close-thin"></use>
+</svg>
+       </button>
+      <button id="header-button-menu" aria-label="menu" class="site-header__hamburger js-hamburger">
+        <svg class="icon-hamburger site-header__hamburger-icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-hamburger"></use>
+</svg>
+        <svg class="icon-close-thin site-header__hamburger-close">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-close-thin"></use>
+</svg>
+      </button>
+    </section>
+  </div>
+  <div class="search-form__header-wrapper js-search-wrapper">
+    <div class="l-container">
+      <div class="search-form search-form--header">
+        <div class="search-form__container">
+          <form action="https://umanitoba.ca/search" class="search-form__form" accept-charset="UTF-8">
+            <input type="search" id="q" name="q" size="30" maxlength="255" class="search-form__input" placeholder="What are you looking for?">
+            <button type="submit" class="search-form__submit">
+              <svg class="icon-search search-form__submit-icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-search"></use>
+</svg>
+            </button>
+          </form>
+                  </div>
+      </div>
+    </div>
+  </div>
+</header>
+<div class="mobile-drawer">
+  <div class="l-container">
+    <h2 class="mobile-drawer__faculty-title">
+              <a href="" class="mobile-drawer__faculty-link">Libraries</a>
+          </h2>
+                <nav role="navigation" aria-labelledby="block-main-menu" id="block-main-mobile" data-block-plugin-id="system_menu_block:main-menu" class="block block-menu navigation menu--main">
+        <h2 class="visually-hidden" id="block-main-menu">Main Menu</h2>
+        <ul class="menu">
+            <li class="menu-item"><a href="https://umanitoba.ca/libraries/access-materials" class="">Access materials</a></li>
+            <li class="menu-item"><a href="https://umanitoba.ca/libraries/help-and-services" class="">Help and services</a></li>
+            <li class="menu-item"><a href="https://umanitoba.ca/libraries/locations-and-facilities" class="">Locations and facilities</a></li>
+            <li class="menu-item"><a href="https://umanitoba.ca/libraries/accessibility-services" class="">Accessibility services</a></li>
         </ul>
+      </nav>
+    <nav role="navigation" aria-labelledby="block-functional-menu" id="block-functional-mobile" data-block-plugin-id="system_menu_block:functional-menu" class="block block-menu navigation menu--functional">
+      <h2 class="visually-hidden" id="block-functional-menu">Functional Menu</h2>
+      <ul class="menu">
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/current-students" class="">Current students</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/faculty-and-staff" class="">Faculty and staff</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/community/alumni" class="">Alumni</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/webmail/">Email</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://news.umanitoba.ca/">News and events</a>
+        </li>
+      </ul>
     </nav>
+    <nav role="navigation" aria-labelledby="block-global-cta-menu" id="block-global-cta-mobile" data-block-plugin-id="system_menu_block:global-cta-menu" class="block block-menu navigation menu--global-cta">
+      <h2 class="visually-hidden" id="block-global-cta-menu">Call To Action Menu</h2>
+      <ul class="menu">
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/visit" class="button button--small ">Visit</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/admissions/apply-um" class="button button--small ">Apply</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/community/giving" class="button button--small ">Donate</a>
+        </li>
+      </ul>
+    </nav>
+    <p class="mobile-territory-acknowledgement">
+      The University of Manitoba campuses are located on original lands of Anishinaabeg, Cree, Oji-Cree, Dakota, and Dene peoples, and on the homeland of the Métis Nation. <a href="http://umanitoba.ca/admin/indigenous_connect/5728.html"><strong>More</strong></a>
+    </p>
+    <address class="mobile-drawer__address">
+      <p>
+        <strong>University of Manitoba</strong><br/>
+        Winnipeg, Manitoba Canada, R3T 2N2
+      </p>
+      <a class="button button--small" href="https://umanitoba.ca/visit-university-manitoba">Maps and directions</a>
+    </address>
+    <nav class="telephone">
+      <a class="u-link-decoration" href="tel:+1800-432-1960">1-800-432-1960 (North America)</a><br>
+      <a class="u-link-decoration" href="tel:+1204-474-9341">Emergency: 204-474-9341</a><br>
+      <a class="u-link-decoration" href="http://umanitoba.ca/campus/security/contact.html"><strong>Emergency Information</strong></a>
+    </nav>
+    <nav class="menu--footer">
+      <ul class="menu">
+        <li class="menu-item">
+          <a href="http://umanitoba.ca/careers/">Careers</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://umanitoba.ca/media-relations">Media</a>
+        </li>
+        <li class="menu-item">
+          <a href="http://umanitoba.ca/people">People search</a>
+        </li>
+        <li class="menu-item">
+          <a href="https://research.ad.umanitoba.ca/mrt/pubapp/exp_search.php">Research experts</a>
+        </li>
+        <li class="menu-item">
+          <a href="http://umanitoba.ca/access_and_privacy/Privacy_Statement.html">Privacy policy</a>
+        </li>
+        <li class="menu-item">
+          <a href="http://umanitoba.ca/admin/vp_admin/ofp/ohrcm/accessibility/">Accessibility</a>
+        </li>
+        <li class="menu-item">
+          <a href="http://umanitoba.ca/admin/vp_admin/ofp/termsofuse.html">Terms of use</a>
+        </li>
+        <li class="menu-item">
+          <a href="mailto:NGWE@umanitoba.ca">Website feedback</a>
+        </li>
+      </ul>
+    </nav>
+    <nav class="menu--social">
+      <ul class="social-links" aria-label="University of Manitoba Social Media Accounts">
+            <li class="social-links__item">
+            <a href="https://twitter.com/umanitoba" aria-label="Follow us on Twitter" class="social-links__link">
+                <svg class="icon-twitter social-links__icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-twitter"></use>
+</svg>
+            </a>
+        </li>
+            <li class="social-links__item">
+        <a href="https://www.facebook.com/umanitoba" aria-label="Follow us on Facebook" class="social-links__link">
+            <svg class="icon-facebook social-links__icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-facebook"></use>
+</svg>
+        </a>
+        </li>
+            <li class="social-links__item">
+            <a href="https://www.instagram.com/umanitoba/" aria-label="Follow us on Instagram" class="social-links__link">
+                <svg class="icon-instagram social-links__icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-instagram"></use>
+</svg>
+            </a>
+        </li>
+            <li class="social-links__item">
+            <a href="https://www.youtube.com/user/YouManitoba" aria-label="Follow us on YouTube" class="social-links__link">
+                <svg class="icon-youtube social-links__icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-youtube"></use>
+</svg>
+            </a>
+        </li>
+            <li class="social-links__item">
+            <a href="https://www.linkedin.com/school/umanitoba/" aria-label="Follow us on LinkedIn" class="social-links__link">
+                <svg class="icon-linkedin social-links__icon">
+  <use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="{% static 'recordtransfer/img/svg-sprite.svg' %}#icon-linkedin"></use>
+</svg>
+            </a>
+        </li>
+                        <li class="social-links__item">
+                <a href="https://umanitoba.ca/social-media-directory" aria-label="Social Media Directory">All social</a>
+            </li>
+            </ul>
+    </nav>
+  </div>
+</div>
+
+
+<header class="header">
+    {% include 'recordtransfer/nav.html' %}
 </header>
