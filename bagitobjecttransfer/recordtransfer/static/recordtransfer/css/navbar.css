@@ -5,12 +5,6 @@
  * Modifications made by: Daniel Lovegrove
  */
 
-header {
-    background-color: #eeeeee;
-    width: 100%;
-    box-shadow: 0 4px 3px -3px #bbbbbb;
-}
-
 .main-navbar {
     padding: 0;
     margin: 0;

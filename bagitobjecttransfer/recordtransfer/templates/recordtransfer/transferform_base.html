@@ -17,6 +17,10 @@
 
     {% block form_explanation %}{% endblock %}
 
+    <p>
+        <span class="required-field">{% blocktrans %}Mandatory fields are marked with a{% endblocktrans %}</span>
+    </p>
+
     <form id="transfer-form" action="" method="post">
         {% csrf_token %}
         {{ wizard.management_form }}
