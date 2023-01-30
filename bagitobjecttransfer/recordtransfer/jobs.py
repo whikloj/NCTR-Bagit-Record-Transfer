@@ -57,7 +57,7 @@ def bag_user_metadata_and_files(form_data: dict, user_submitted: User):
     LOGGER.info(msg='Creating serializable CAAIS metadata from form data')
     metadata = convert_form_data_to_metadata(form_data)
 
-    title = form_data['accession_title']
+    title = metadata.accession_title
     abbrev_title = title if len(title) <= 20 else title[0:20]
     bag_name = '{username}_{datetime}_{title}'.format(
         username=slugify(user_submitted),

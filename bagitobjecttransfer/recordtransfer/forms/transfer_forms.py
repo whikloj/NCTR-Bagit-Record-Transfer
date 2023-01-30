@@ -9,8 +9,8 @@ from captcha.fields import ReCaptchaField
 from django_countries.fields import CountryField
 from django_countries.widgets import CountrySelectWidget
 
-from caais.models import SourceType, SourceRole, RightsType
-from recordtransfer.settings import USE_DATE_WIDGETS
+from caais.models import SourceType, SourceRole, RightsType, TitleChoices
+from recordtransfer.settings import USE_DATE_WIDGETS, USE_ACCESSION_TITLE_VOCABULARY
 
 
 class TransferForm(forms.Form):
@@ -363,15 +363,30 @@ class RecordDescriptionForm(TransferForm):
                     self.add_error('end_date_of_material', msg)
         return cleaned_data
 
-    accession_title = forms.CharField(
-        min_length=2,
-        max_length=100,
-        required=True,
-        widget=forms.TextInput(attrs={
-            'placeholder': gettext('e.g., Committee Meeting Minutes')
-        }),
-        label=gettext('Title')
-    )
+    if USE_ACCESSION_TITLE_VOCABULARY:
+        # We have titles so make it a select box.
+        accession_title = forms.ModelChoiceField(
+            required=True,
+            queryset=TitleChoices.objects.all().order_by('name'),
+            empty_label=gettext('Please select one'),
+            label=gettext('Title'),
+            help_text=gettext('Select a title from the list.'),
+            widget=forms.Select(
+                attrs={
+                    'class': 'reduce-form-field-width',
+                }
+            )
+        )
+    else:
+        accession_title = forms.CharField(
+            min_length=2,
+            max_length=100,
+            required=True,
+            widget=forms.TextInput(attrs={
+                'placeholder': gettext('e.g., Committee Meeting Minutes')
+            }),
+            label=gettext('Title')
+        )
 
     if not USE_DATE_WIDGETS:
         # Use _text to avoid jQuery input masks

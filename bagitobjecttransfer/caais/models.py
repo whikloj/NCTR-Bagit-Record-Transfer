@@ -1,6 +1,6 @@
 ''' Models describing the Canadian Archival Accession Information Standard v1.0:
 
-http://archivescanada.ca/uploads/files/Documents/CAAIS_2019May15_EN.pdf
+https://archivescanada.ca/wp-content/uploads/2022/12/CAAIS_2019May15_EN.pdf
 '''
 from functools import partial
 from typing import Union, Iterable
@@ -8,7 +8,6 @@ from typing import Union, Iterable
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
-from django.urls import reverse
 from django.utils.translation import gettext, gettext_lazy as _
 
 from django_countries.fields import CountryField
@@ -1261,3 +1260,10 @@ class DateOfCreationOrRevision(models.Model):
     action_note = models.TextField(blank=True, default='', help_text=gettext(
         "Record any information summarizing actions applied to the accession record."
     ))
+
+
+class TitleChoices(AbstractTerm):
+    """ A list of specific Accession Titles """
+    class Meta:
+        verbose_name = 'Accession Title'
+        verbose_name_plural = 'Accession Titles'

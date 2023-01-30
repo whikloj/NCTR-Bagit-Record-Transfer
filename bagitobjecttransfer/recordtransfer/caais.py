@@ -13,7 +13,7 @@ flat metadata.
 from collections import OrderedDict
 
 import caais.models as c_models
-from recordtransfer.settings import DEFAULT_DATA
+from recordtransfer.settings import DEFAULT_DATA, USE_ACCESSION_TITLE_VOCABULARY
 
 
 class MetadataConversionError(Exception):
@@ -503,6 +503,10 @@ def _convert_form_to_caais_section_1(form_data: dict) -> c_models.Metadata:
     """
     # Make the main CAAIS object
     section_1_data = _get_property_fields(form_data, 'section_1')
+    if USE_ACCESSION_TITLE_VOCABULARY:
+        # We need to switch the TitleChoices object to a string.
+        title_choice = str(section_1_data['accession_title'].name)
+        section_1_data['accession_title'] = title_choice
     # 1.1 Repository, 1.3 Accession Title & 1.5 Acquisition Method as properties.
     metadata = c_models.Metadata.objects.create(**section_1_data)
     # 1.2 Create identifiers.

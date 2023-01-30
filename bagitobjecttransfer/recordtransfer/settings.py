@@ -48,6 +48,10 @@ CLAMAV_PORT = config('CLAMAV_PORT', default=3310, cast=int)
 
 MAX_SAVED_TRANSFER_COUNT = config('MAX_SAVED_TRANSFER_COUNT', default=2, cast=int)
 
+# Use a controlled vocabulary for accession titles.
+
+USE_ACCESSION_TITLE_VOCABULARY = config('USE_ACCESSION_TITLE_VOCABULARY', default=False, cast=bool)
+
 # Default data to inject into metadata, after the user enters their own metadata
 
 DEFAULT_DATA = {

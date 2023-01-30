@@ -25,7 +25,7 @@ from caais.models import (
     LanguageOfMaterial,
     StorageLocation,
     RightsType,
-    Rights, EventType,
+    Rights, EventType, TitleChoices,
 )
 
 
@@ -254,3 +254,8 @@ class RightsTypeAdmin(TermAdmin):
 @admin.register(EventType)
 class EventTypeAdmin(TermAdmin):
     """Administrator add/change event types"""
+
+
+@admin.register(TitleChoices)
+class TitleChoicesAdmin(TermAdmin):
+    """ Administrator add/change accession title choices """

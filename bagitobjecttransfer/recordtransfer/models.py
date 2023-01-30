@@ -2,7 +2,6 @@
 import os
 from collections import OrderedDict
 from pathlib import Path
-import json
 import logging
 import shutil
 import uuid

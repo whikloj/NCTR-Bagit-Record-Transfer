@@ -10,7 +10,7 @@ from django.contrib import admin, messages
 from django.contrib.admin.utils import unquote
 from django.contrib.auth.admin import UserAdmin, sensitive_post_parameters_m
 from django.db.models import Q
-from django.db.models.signals import pre_delete
+from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse, path
@@ -96,6 +96,15 @@ def export_bag_csv(queryset, version: ExportVersion, filename_prefix: str = None
 def job_file_delete(sender, instance, **kwargs):
     """ FileFields are not deleted automatically after Django 1.11, instead this receiver does it."""
     instance.attached_file.delete(False)
+
+
+@receiver(post_delete, sender=Submission)
+def submission_delete_metadata(sender, instance, **kwargs):
+    """ Submissions have a ForeignKey to the CAAIS Metadata and the Upload Session. It is not deleted when the
+    Submission is deleted. This receiver causes the Metadata and Upload Session (and all subsequent parts to be deleted).
+    It is post_delete because otherwise we get an error (possibly a recursive loop)."""
+    instance.bag.delete(False)
+    instance.upload_session.delete(False)
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
