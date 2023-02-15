@@ -20,8 +20,9 @@ from formtools.wizard.views import SessionWizardView
 from caais.models import RightsType, SourceRole, SourceType
 from recordtransfer import settings
 from recordtransfer.models import UploadedFile, UploadSession, User, BagGroup, Submission, SavedTransfer
-from recordtransfer.jobs import bag_user_metadata_and_files, send_user_activation_email
-from recordtransfer.settings import CLAMAV_HOST, CLAMAV_PORT, CLAMAV_ENABLED, MAX_SAVED_TRANSFER_COUNT
+from recordtransfer.jobs import bag_user_files, send_user_activation_email, bag_metadata
+from recordtransfer.settings import CLAMAV_HOST, CLAMAV_PORT, CLAMAV_ENABLED, MAX_SAVED_TRANSFER_COUNT, \
+    METADATA_TRANSFER_ENABLED, FILE_TRANSFER_ENABLED
 from recordtransfer.utils import get_human_readable_file_count, get_human_readable_size
 from recordtransfer.forms import SignUpForm, UserProfileForm
 from recordtransfer.tokens import account_activation_token
@@ -109,6 +110,25 @@ class ActivationInvalid(TemplateView):
     template_name = 'recordtransfer/activationinvalid.html'
 
 
+class TransferSelection(TemplateView):
+    """ Page to choose which type of transfer to perform """
+    template_name = 'recordtransfer/transfer_choice.html'
+
+    def get(self, request, *args, **kwargs):
+        # If only one form is enabled, skip the selection form.
+        if METADATA_TRANSFER_ENABLED and not FILE_TRANSFER_ENABLED:
+            return HttpResponseRedirect('recordtransfer:metadata_transfer')
+        elif not METADATA_TRANSFER_ENABLED and FILE_TRANSFER_ENABLED:
+            return HttpResponseRedirect('recordtransfer:file_transfer')
+        else:
+            return super().get(request, args, kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data()
+        context['metadata_transfer_enabled'] = METADATA_TRANSFER_ENABLED
+        context['file_transfer_enabled'] = FILE_TRANSFER_ENABLED
+        return context
+
 class CreateAccount(FormView):
     ''' Allows a user to create a new account with the SignUpForm. When the form is submitted
     successfully, send an email to that user with a link that lets them activate their account.
@@ -143,7 +163,37 @@ def activate_account(request, uidb64, token):
     return HttpResponseRedirect(reverse('recordtransfer:activationinvalid'))
 
 
-class TransferFormWizard(SessionWizardView):
+class AbstractTransferWizard(SessionWizardView):
+    """ Abstract form wizard to hold some common elements. """
+    _TEMPLATES = {}
+
+    def get_template_names(self):
+        ''' Retrieve the name of the template for the current step '''
+        step_name = self.steps.current
+        return [self._TEMPLATES[step_name]["templateref"]]
+
+    def get_form_initial(self, step):
+        initial = self.initial_dict.get(step, {})
+        return initial
+
+    def get_context_data(self, form, **kwargs):
+        ''' Retrieve context data for the current form template.
+
+        Args:
+            form: The form to display to the user.
+
+        Returns:
+            dict: A dictionary of context data to be used to render the form template.
+        '''
+        context = super().get_context_data(form, **kwargs)
+        step_name = self.steps.current
+        context.update({'form_title': self._TEMPLATES[step_name]['formtitle']})
+        if 'infomessage' in self._TEMPLATES[step_name]:
+            context.update({'info_message': self._TEMPLATES[step_name]['infomessage']})
+        return context
+
+
+class TransferFormWizard(AbstractTransferWizard):
     ''' A multi-page form for collecting user metadata and uploading files. Uses a form wizard. For
     more info, visit this link: https://django-formtools.readthedocs.io/en/latest/wizard.html
     '''
@@ -194,31 +244,9 @@ class TransferFormWizard(SessionWizardView):
                 "records, go to the next step"
             )
         },
-        "grouptransfer": {
-            "templateref": "recordtransfer/transferform_group.html",
-            "formtitle": gettext("Assign Transfer to Group (Optional)"),
-            "infomessage": gettext(
-                "If this transfer belongs in a group with other transfers you have made or will "
-                "make, select the group it belongs in in the dropdown below, or create a new group"
-            )
-        },
-        "uploadfiles": {
-            "templateref": "recordtransfer/transferform_dropzone.html",
-            "formtitle": gettext("Upload Files"),
-            "infomessage": gettext(
-                "Add any final notes you would like to add, and upload your files"
-            )
-        },
     }
 
     def get(self, request, *args, **kwargs):
-        if self.steps.current == 'acceptlegal' and CLAMAV_ENABLED:
-            clamd_socket = clamd.ClamdNetworkSocket(CLAMAV_HOST, CLAMAV_PORT)
-            try:
-                clamd_socket.ping()
-            except clamd.ClamdError as exc:
-                LOGGER.error("Unable to ping ClamAV", exc_info=exc)
-                return HttpResponseRedirect(reverse('recordtransfer:systemerror'))
         resume_id = request.GET.get('resume_transfer', None)
         if resume_id:
             transfer = SavedTransfer.objects.filter(user=self.request.user, id=resume_id).first()
@@ -242,7 +270,7 @@ class TransferFormWizard(SessionWizardView):
                 transfer = SavedTransfer()
             transfer.current_step = save_form_step
             # Make a dict of form element names to values to store. Elements are prefixed with "<step_name>-"
-            current_data = {f.replace(save_form_step + "-", ""): self.request.POST[f] for f in self.request.POST.keys()
+            current_data = {f: self.request.POST[f] for f in self.request.POST.keys()
                             if f.startswith(save_form_step + "-")}
             transfer.user = self.request.user
             transfer.last_updated = datetime.datetime.now(timezone.get_current_timezone())
@@ -252,13 +280,8 @@ class TransferFormWizard(SessionWizardView):
         else:
             return super().post(*args, **kwargs)
 
-    def get_template_names(self):
-        ''' Retrieve the name of the template for the current step '''
-        step_name = self.steps.current
-        return [self._TEMPLATES[step_name]["templateref"]]
-
     def get_form_initial(self, step):
-        initial = self.initial_dict.get(step, {})
+        initial = super().get_form_initial(step)
         resume_id = self.request.GET.get('resume_transfer', None)
         if resume_id is not None:
             transfer = SavedTransfer.objects.filter(user=self.request.user, id=resume_id).first()
@@ -272,13 +295,6 @@ class TransferFormWizard(SessionWizardView):
             initial['email'] = str(curr_user.email)
         return initial
 
-    def get_form_kwargs(self, step=None):
-        kwargs = super().get_form_kwargs(step)
-        if step == 'grouptransfer':
-            users_groups = BagGroup.objects.filter(created_by=self.request.user)
-            kwargs['users_groups'] = users_groups
-        return kwargs
-
     def get_context_data(self, form, **kwargs):
         ''' Retrieve context data for the current form template.
 
@@ -290,13 +306,7 @@ class TransferFormWizard(SessionWizardView):
         '''
         context = super().get_context_data(form, **kwargs)
         step_name = self.steps.current
-        context.update({'form_title': self._TEMPLATES[step_name]['formtitle']})
-        if 'infomessage' in self._TEMPLATES[step_name]:
-            context.update({'info_message': self._TEMPLATES[step_name]['infomessage']})
-        if step_name == 'grouptransfer':
-            users_groups = BagGroup.objects.filter(created_by=self.request.user)
-            context.update({'users_groups': users_groups})
-        elif step_name == 'rights':
+        if step_name == 'rights':
             all_rights = RightsType.objects.all().exclude(name='Other')
             context.update({'rights': all_rights})
         elif step_name == 'sourceinfo':
@@ -323,17 +333,6 @@ class TransferFormWizard(SessionWizardView):
 
     def get_all_cleaned_data(self):
         cleaned_data = super().get_all_cleaned_data()
-
-        # Get quantity and type of files for extent
-        session = UploadSession.objects.filter(token=cleaned_data['session_token']).first()
-        size = get_human_readable_size(session.upload_size, base=1024, precision=2)
-        count = get_human_readable_file_count(
-            [f.name for f in session.get_existing_file_set()],
-            settings.ACCEPTED_FILE_FORMATS,
-            LOGGER
-        )
-
-        cleaned_data['quantity_and_type_of_units'] = '{0}, totalling {1}'.format(count, size)
 
         start_date = cleaned_data['start_date_of_material']
         end_date = cleaned_data['end_date_of_material']
@@ -381,8 +380,94 @@ class TransferFormWizard(SessionWizardView):
             HttpResponseRedirect: Redirects the user to the Transfer Sent page.
         '''
         form_data = self.get_all_cleaned_data()
-        bag_user_metadata_and_files.delay(form_data, self.request.user)
+        bag_metadata.delay(form_data, self.request.user)
         return HttpResponseRedirect(reverse('recordtransfer:transfersent'))
+
+
+class FileTransferFormWizard(AbstractTransferWizard):
+    _TEMPLATES = {
+        "acceptlegal": {
+            "templateref": "recordtransfer/transferform_legal.html",
+            "formtitle": gettext("Legal Agreement"),
+        },
+        "grouptransfer": {
+            "templateref": "recordtransfer/transferform_group.html",
+            "formtitle": gettext("Assign Transfer to Group (Optional)"),
+            "infomessage": gettext(
+                "If this transfer belongs in a group with other transfers you have made or will "
+                "make, select the group it belongs in in the dropdown below, or create a new group"
+            )
+        },
+        "uploadfiles": {
+            "templateref": "recordtransfer/transferform_dropzone.html",
+            "formtitle": gettext("Upload Files"),
+            "infomessage": gettext(
+                "Add any final notes you would like to add, and upload your files"
+            )
+        },
+    }
+
+    def get(self, request, *args, **kwargs):
+        if self.steps.current == 'acceptlegal' and CLAMAV_ENABLED:
+            clamd_socket = clamd.ClamdNetworkSocket(CLAMAV_HOST, CLAMAV_PORT)
+            try:
+                clamd_socket.ping()
+            except clamd.ClamdError as exc:
+                LOGGER.error("Unable to ping ClamAV", exc_info=exc)
+                return HttpResponseRedirect(reverse('recordtransfer:systemerror'))
+        return super().get(self, request, *args, **kwargs)
+
+    def get_form_kwargs(self, step=None):
+        kwargs = super().get_form_kwargs(step)
+        if step == 'grouptransfer':
+            users_groups = BagGroup.objects.filter(created_by=self.request.user)
+            kwargs['users_groups'] = users_groups
+        return kwargs
+
+    def done(self, form_list, **kwargs):
+        ''' Retrieves all of the form data, and creates a bag from it asynchronously.
+
+        Args:
+            form_list: The list of forms the user filled out.
+
+        Returns:
+            HttpResponseRedirect: Redirects the user to the Transfer Sent page.
+        '''
+        form_data = self.get_all_cleaned_data()
+        bag_user_files.delay(form_data, self.request.user)
+        return HttpResponseRedirect(reverse('recordtransfer:transfersent'))
+
+    def get_all_cleaned_data(self):
+        cleaned_data = super().get_all_cleaned_data()
+
+        # Get quantity and type of files for extent
+        session = UploadSession.objects.filter(token=cleaned_data['session_token']).first()
+        size = get_human_readable_size(session.upload_size, base=1024, precision=2)
+        count = get_human_readable_file_count(
+            [f.name for f in session.get_existing_file_set()],
+            settings.ACCEPTED_FILE_FORMATS,
+            LOGGER
+        )
+
+        cleaned_data['quantity_and_type_of_units'] = '{0}, totalling {1}'.format(count, size)
+        return cleaned_data
+
+    def get_context_data(self, form, **kwargs):
+        ''' Retrieve context data for the current form template.
+
+        Args:
+            form: The form to display to the user.
+
+        Returns:
+            dict: A dictionary of context data to be used to render the form template.
+        '''
+        context = super().get_context_data(form, **kwargs)
+        step_name = self.steps.current
+        if step_name == 'grouptransfer':
+            users_groups = BagGroup.objects.filter(created_by=self.request.user)
+            context.update({'users_groups': users_groups})
+        context.update({'save_form_state': 'disabled'})
+        return context
 
 
 @require_http_methods(['POST'])

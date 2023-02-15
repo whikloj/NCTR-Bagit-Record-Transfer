@@ -305,7 +305,7 @@ class Submission(models.Model):
         return f'Submission by {self.user} at {self.submission_date}'
 
     def flatten(self, version: ExportVersion = ExportVersion.CAAIS_1_0):
-        new_row = self.bag.flatten(version)
+        new_row = self.bag.flatten(version) if self.bag is not None else {}
         new_row['status'] = self.ReviewStatus(self.review_status).label if self.review_status else ''
         new_row.update(self.appraisals.flatten(version))
         return new_row
@@ -360,22 +360,22 @@ class Submission(models.Model):
         os.mkdir(self.location)
         LOGGER.info(msg=('Created new bag folder at "{0}"'.format(self.user_folder)))
 
-        copied, missing = self.upload_session.copy_session_uploads(self.location, logger)
+        if self.upload_session is not None:
+            copied, missing = self.upload_session.copy_session_uploads(self.location, logger)
 
-        if missing:
-            LOGGER.error(msg='One or more uploaded files is missing!')
-            LOGGER.info(msg=('Removing bag at "{0}" due to missing files'.format(self.location)))
-            self.remove_bag()
-            return {
-                'missing_files': missing, 'bag_created': False, 'bag_valid': False,
-                'time_created': None,
-            }
+            if missing:
+                LOGGER.error(msg='One or more uploaded files is missing!')
+                LOGGER.info(msg=('Removing bag at "{0}" due to missing files'.format(self.location)))
+                self.remove_bag()
+                return {
+                    'missing_files': missing, 'bag_created': False, 'bag_valid': False,
+                    'time_created': None,
+                }
 
         logger.info(msg=('Creating BagIt bag at "{0}"'.format(self.location)))
         logger.info(msg=('Using these checksum algorithm(s): {0}'.format(', '.join(algorithms))))
 
-        bagit_info = self.bag.flatten()
-        bagit_info.update(self.appraisals.flatten())
+        bagit_info = self.flatten()
         bag = bagit.make_bag(self.location, bagit_info, checksums=algorithms)
 
         logger.info(msg=('Setting file mode for bag payload files to {0}'.format(file_perms)))

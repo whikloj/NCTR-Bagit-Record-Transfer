@@ -232,7 +232,7 @@ def _get_section_3_tree(form_data: dict) -> OrderedDict:
         caais_key='extent_statement_type',
         section=curr_section)
     # 3.2.2 Quantity and Type of Units
-    new_extent['quantity_and_type_of_units'] = get_mandatory_field(
+    new_extent['quantity_and_type_of_units'] = get_optional_field(
         form_data=form_data,
         caais_key='quantity_and_type_of_units',
         section=curr_section)

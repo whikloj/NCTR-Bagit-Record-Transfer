@@ -370,7 +370,7 @@ $(() => {
     }
 
     $("#file-dropzone").dropzone({
-        url: "/transfer/uploadfile/",
+        url: "/file_transfer/uploadfile/",
         paramName: "upload_files",
         addRemoveLinks: true,
         autoProcessQueue: false,
@@ -404,7 +404,7 @@ $(() => {
             }
             else {
                 $.post({
-                    url: '/transfer/checkfile/',
+                    url: '/file_transfer/checkfile/',
                     data: {
                         'filename': file.name,
                         'filesize': file.size,

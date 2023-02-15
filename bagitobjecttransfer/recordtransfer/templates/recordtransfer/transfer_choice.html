@@ -1,0 +1,20 @@
+{% extends 'recordtransfer/base.html' %}
+{% load i18n %}
+
+{% block title %}
+    Start New Transfer
+{% endblock %}
+
+{% block content %}
+    <div class="form-title title-text">
+        Start New Transfer
+    </div>
+    {% if metadata_transfer_enabled %}
+    <p><b><a href="{% url 'recordtransfer:metadata_transfer' %}">New metadata transfer</a></b><br />
+        Use this form to submit information about files to be transferred later.</p>
+    {% endif %}
+    {% if file_transfer_enabled %}
+    <p><b><a href="{% url 'recordtransfer:file_transfer' %}">New file transfer</a></b><br />
+        Use this submit upload files to be transferred.</p>
+    {% endif %}
+{% endblock %}

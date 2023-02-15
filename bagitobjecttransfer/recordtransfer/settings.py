@@ -52,6 +52,11 @@ MAX_SAVED_TRANSFER_COUNT = config('MAX_SAVED_TRANSFER_COUNT', default=2, cast=in
 
 USE_ACCESSION_TITLE_VOCABULARY = config('USE_ACCESSION_TITLE_VOCABULARY', default=False, cast=bool)
 
+# To disable one of the forms, both forms can't be disabled at the same time.
+
+METADATA_TRANSFER_ENABLED = config('METADATA_TRANSFER_ENABLED', default=True, cast=bool)
+FILE_TRANSFER_ENABLED = config('FILE_TRANSFER_ENABLED', default=True, cast=bool)
+
 # Default data to inject into metadata, after the user enters their own metadata
 
 DEFAULT_DATA = {

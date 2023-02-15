@@ -31,34 +31,29 @@ def _get_admin_recipient_list(subject):
     recipients = User.objects.filter(gets_bag_email_updates=True)
     if not recipients:
         LOGGER.warning(msg='There are no users configured to receive transfer update emails.')
-        return
+        return None
     user_list = list(recipients)
     LOGGER.info(msg=('Found {0} Users(s) to send email to: {1}'.format(len(user_list), user_list)))
     return [str(e) for e in recipients.values_list('email', flat=True)]
 
-
 @django_rq.job
-def bag_user_metadata_and_files(form_data: dict, user_submitted: User):
-    ''' Create database models for the submitted form. Sends an email
-    to the submitting user and the staff members who receive submission email updates.
+def bag_metadata(form_data: dict, user_submitted: User):
+    """ Create database models for the submitted metadata. Sends an email to the submitting user and staff members
+    who receive submission email updates.
 
     Args:
-        form_data (dict): A dictionary of the cleaned form data from the transfer form.
-        user_submitted (User): The user who submitted the data and files.
-    '''
-    LOGGER.info(msg='Creating a submission from the transfer submitted by {0}'.format(
+        form_data (dict): A dictionary of the cleaned form data from the metadata form.
+        user_submitted (User): The user who submitted the form.
+    """
+    LOGGER.info(msg='Creating a metadata submission from the transfer submitted by {0}'.format(
         str(user_submitted))
     )
 
-    token = form_data['session_token']
-    LOGGER.info(msg=('Fetching session with the token {0}'.format(token)))
-    upload_session = UploadSession.objects.filter(token=token).first()
-
     LOGGER.info(msg='Creating serializable CAAIS metadata from form data')
     metadata = convert_form_data_to_metadata(form_data)
-
     title = metadata.accession_title
     abbrev_title = title if len(title) <= 20 else title[0:20]
+
     bag_name = '{username}_{datetime}_{title}'.format(
         username=slugify(user_submitted),
         datetime=timezone.localtime(timezone.now()).strftime(r'%Y%m%d-%H%M%S'),
@@ -66,11 +61,48 @@ def bag_user_metadata_and_files(form_data: dict, user_submitted: User):
 
     LOGGER.info(msg=('Created name for bag: "{0}"'.format(bag_name)))
 
-    LOGGER.info('Creating Submission object linked to new metadata')
+    LOGGER.info('Creating metadata Submission object linked to new metadata')
     new_submission = Submission(
         submission_date=timezone.now(),
         user=user_submitted,
         bag=metadata,
+        bag_name=bag_name,
+    )
+    new_submission.save()
+
+    LOGGER.info('Sending transfer success email to administrators')
+    send_bag_creation_success.delay(form_data, new_submission)
+    LOGGER.info('Sending thank you email to user')
+    send_thank_you_for_your_transfer.delay(form_data, new_submission)
+
+
+@django_rq.job
+def bag_user_files(form_data: dict, user_submitted: User):
+    ''' Create database models for the submitted form. Sends an email
+    to the submitting user and the staff members who receive submission email updates.
+
+    Args:
+        form_data (dict): A dictionary of the cleaned form data from the transfer form.
+        user_submitted (User): The user who submitted the data and files.
+    '''
+    LOGGER.info(msg='Creating a file submission from the transfer submitted by {0}'.format(
+        str(user_submitted))
+    )
+
+    token = form_data['session_token']
+    LOGGER.info(msg=('Fetching session with the token {0}'.format(token)))
+    upload_session = UploadSession.objects.filter(token=token).first()
+
+    bag_name = '{username}_{datetime}'.format(
+        username=slugify(user_submitted),
+        datetime=timezone.localtime(timezone.now()).strftime(r'%Y%m%d-%H%M%S'))
+
+    LOGGER.info(msg=('Created name for bag: "{0}"'.format(bag_name)))
+
+    LOGGER.info('Creating file Submission object linked to new metadata')
+    new_submission = Submission(
+        submission_date=timezone.now(),
+        user=user_submitted,
         upload_session=upload_session,
         bag_name=bag_name,
     )
@@ -190,18 +222,19 @@ def send_bag_creation_success(form_data: dict, submission: Submission):
 
     recipient_emails = _get_admin_recipient_list(subject)
 
-    user_submitted = submission.user
-    send_mail_with_logs(
-        recipients=recipient_emails,
-        from_email=from_email,
-        subject=subject,
-        template_name='recordtransfer/email/bag_submit_success.html',
-        context={
-            'user': user_submitted,
-            'form_data': form_data,
-            'submission_url': submission_url,
-        }
-    )
+    if recipient_emails is not None and len(recipient_emails) > 0:
+        user_submitted = submission.user
+        send_mail_with_logs(
+            recipients=recipient_emails,
+            from_email=from_email,
+            subject=subject,
+            template_name='recordtransfer/email/bag_submit_success.html',
+            context={
+                'user': user_submitted,
+                'form_data': form_data,
+                'submission_url': submission_url,
+            }
+        )
 
 @django_rq.job
 def send_bag_creation_failure(form_data: dict, user_submitted: User):
@@ -219,16 +252,17 @@ def send_bag_creation_failure(form_data: dict, user_submitted: User):
 
     recipient_emails = _get_admin_recipient_list(subject)
 
-    send_mail_with_logs(
-        recipients=recipient_emails,
-        from_email=from_email,
-        subject=subject,
-        template_name='recordtransfer/email/bag_submit_failure.html',
-        context={
-            'user': user_submitted,
-            'form_data': form_data,
-        }
-    )
+    if recipient_emails is not None and len(recipient_emails) > 0:
+        send_mail_with_logs(
+            recipients=recipient_emails,
+            from_email=from_email,
+            subject=subject,
+            template_name='recordtransfer/email/bag_submit_failure.html',
+            context={
+                'user': user_submitted,
+                'form_data': form_data,
+            }
+        )
 
 @django_rq.job
 def send_thank_you_for_your_transfer(form_data: dict, submission: Submission):

@@ -10,19 +10,23 @@ app_name = 'recordtransfer'
 urlpatterns = [
     path('', views.Index.as_view(), name='index'),
 
-    path('transfer/', login_required(views.TransferFormWizard.as_view([
+    path('transfer/', views.TransferSelection.as_view(), name='transfer'),
+    path('metadata_transfer/', login_required(views.TransferFormWizard.as_view([
         ('acceptlegal', forms.AcceptLegal),
         ('contactinfo', forms.ContactInfoForm),
         ('sourceinfo', forms.SourceInfoForm),
         ('recorddescription', forms.RecordDescriptionForm),
-        ('rights', formset_factory(forms.RightsForm, formset=forms.RightsFormSet, extra=1)),
+        ('rights', formset_factory(forms.RightsForm, formset=forms.RightsFormSet, extra=1, min_num=1,
+                                   validate_min=True)),
         ('otheridentifiers', formset_factory(forms.OtherIdentifiersForm, extra=1)),
+        ])), name='metadata_transfer'),
+    path('file_transfer/', login_required(views.FileTransferFormWizard.as_view([
+        ('acceptlegal', forms.AcceptLegal),
         ('grouptransfer', forms.GroupTransferForm),
         ('uploadfiles', forms.UploadFilesForm),
-        ])), name='transfer'),
-
-    path('transfer/checkfile/', login_required(views.accept_file), name='checkfile'),
-    path('transfer/uploadfile/', login_required(views.uploadfiles), name='uploadfile'),
+    ])), name='file_transfer'),
+    path('file_transfer/checkfile/', login_required(views.accept_file), name='checkfile'),
+    path('file_transfer/uploadfile/', login_required(views.uploadfiles), name='uploadfile'),
     path('transfer/error/', login_required(views.SystemErrorPage.as_view()), name="systemerror"),
     path('transfer/sent/', views.TransferSent.as_view(), name='transfersent'),
 
