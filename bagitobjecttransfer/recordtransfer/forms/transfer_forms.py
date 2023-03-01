@@ -4,7 +4,22 @@ from captcha.widgets import ReCaptchaV2Invisible
 from django import forms
 from django.utils.translation import gettext
 
-from recordtransfer.forms.metadata_forms import TransferForm
+
+class TransferForm(forms.Form):
+    required_css_class = 'required-field'
+
+
+class AcceptLegal(TransferForm):
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data['agreement_accepted']:
+            self.add_error('agreement_accepted', 'You must accept before continuing')
+
+    agreement_accepted = forms.BooleanField(
+        required=True,
+        widget=forms.CheckboxInput(),
+        label=gettext('I accept these terms'),
+    )
 
 
 class GroupTransferForm(TransferForm):
@@ -62,18 +77,16 @@ class GroupTransferForm(TransferForm):
 
 
 class UploadFilesForm(TransferForm):
-    ''' The form where users upload their files and write any final notes '''
-    general_note = forms.CharField(
-        required=False,
+    ''' The form where users upload their files and add a title '''
+    submission_title = forms.CharField(
+        required=True,
         min_length=4,
-        widget=forms.Textarea(attrs={
-            'rows': '6',
-            'placeholder': gettext('Record any general notes you have about the records here '
-                                   '(optional)')
-        }),
-        help_text=gettext('These should be notes that did not fit in any of the previous steps of '
-                          'this form'),
-        label=gettext('Other notes'),
+        widget=forms.TextInput(
+            attrs={
+                'placeholder': gettext('Example title'),
+            }
+        ),
+        label=gettext('Submission title')
     )
 
     session_token = forms.CharField(

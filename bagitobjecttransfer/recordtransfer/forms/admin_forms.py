@@ -1,10 +1,8 @@
 ''' Forms specific to the recordtransfer admin site '''
 from django import forms
-from django.utils.html import format_html
 from django.utils.translation import gettext
 
 from recordtransfer.models import Appraisal, BagGroup, Submission, UploadSession, UploadedFile, User
-from recordtransfer.settings import ALLOW_BAG_CHANGES
 
 
 class RecordTransferModelForm(forms.ModelForm):
@@ -112,34 +110,21 @@ class UploadSessionForm(RecordTransferModelForm):
 
 
 class SubmissionForm(RecordTransferModelForm):
-    ''' Form for editing Submissions. Adds a help_text to the bag with a link to the bag, if the
-    bag exists.
+    ''' Form for editing Submissions. Adds a help_text to the submission with a link to the submission, if the
+    submission exists.
     '''
 
     class Meta:
         model = Submission
         fields = (
             'submission_date',
-            'bag',
+            'title',
+            'extent_statement',
             'user',
             'review_status'
         )
 
-    disabled_fields = ['submission_date', 'bag', 'user']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if hasattr(self, 'instance') and self.instance.bag:
-            # TODO: This makes the tiny link by the Metadata title in the Submission form.
-            #self.fields['bag'].help_text = ' | '.join([
-            #    format_html('<a href="{}">{}</a>', url, gettext(text)) for url, text in [
-            #        (self.instance.get_admin_report_url(), 'View Bag metadata'),
-            #    ]
-            #])
-            pass
-
-        self.fields['bag'].widget.can_add_related = False
+    disabled_fields = ['submission_date', 'title', 'user', 'extent_statement']
 
 
 class InlineSubmissionForm(RecordTransferModelForm):
@@ -150,9 +135,10 @@ class InlineSubmissionForm(RecordTransferModelForm):
         model = Submission
         fields = (
             'submission_date',
-            'bag',
+            'title',
             'review_status',
         )
+    disabled_fields = ['submission_date']
 
 
 class InlineBagGroupForm(RecordTransferModelForm):

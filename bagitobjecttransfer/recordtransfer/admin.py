@@ -1,9 +1,5 @@
 ''' Custom administration code for the admin site '''
-import csv
 import logging
-import os
-import zipfile
-from io import StringIO, BytesIO
 from pathlib import Path
 
 from django.contrib import admin, messages
@@ -14,12 +10,10 @@ from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse, path
-from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext
 
-from caais.export import ExportVersion
 from recordtransfer.forms import InlineBagGroupForm, SubmissionForm, \
     InlineSubmissionForm, AppraisalForm, InlineAppraisalFormSet, UploadSessionForm, \
     UploadedFileForm, InlineUploadedFileForm
@@ -29,7 +23,6 @@ from recordtransfer.models import User, UploadSession, UploadedFile, BagGroup, A
 from recordtransfer.settings import ALLOW_BAG_CHANGES
 
 from bagitobjecttransfer.settings.base import MEDIA_ROOT
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,39 +52,6 @@ def linkify(field_name):
     return _linkify
 
 
-def export_bag_csv(queryset, version: ExportVersion, filename_prefix: str = None):
-    ''' Export one or more bags to a CSV file
-
-    Args:
-        queryset: The set of one or more bags
-        version: The version of CSV to export
-        filename_prefix: The prefix of the file to create. If none specifed, one
-            is created
-
-    Returns:
-        HttpResponse: A text/csv response to download the CSV file
-    '''
-    csv_file = StringIO()
-    writer = csv.writer(csv_file)
-    for i, submission in enumerate(queryset, 0):
-        new_row = submission.flatten(version)
-        # Write the headers on the first loop
-        if i == 0:
-            writer.writerow(new_row.keys())
-        writer.writerow(new_row.values())
-    csv_file.seek(0)
-
-    response = HttpResponse(csv_file, content_type='text/csv')
-    local_time = timezone.localtime(timezone.now()).strftime(r'%Y%m%d_%H%M%S')
-    if not filename_prefix:
-        version_bits = str(version).split('_')
-        filename_prefix = '{0}_v{1}_'.format(version_bits[0], '.'.join([str(x) for x in version_bits[1:]]))
-    filename = f"{filename_prefix}{local_time}.csv"
-    response['Content-Disposition'] = f'attachment; filename={filename}'
-    csv_file.close()
-    return response
-
-
 @receiver(pre_delete, sender=Job)
 def job_file_delete(sender, instance, **kwargs):
     """ FileFields are not deleted automatically after Django 1.11, instead this receiver does it."""
@@ -100,10 +60,9 @@ def job_file_delete(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=Submission)
 def submission_delete_metadata(sender, instance, **kwargs):
-    """ Submissions have a ForeignKey to the CAAIS Metadata and the Upload Session. It is not deleted when the
-    Submission is deleted. This receiver causes the Metadata and Upload Session (and all subsequent parts to be deleted).
+    """ Submissions have a ForeignKey to the Upload Session. It is not deleted when the
+    Submission is deleted. This receiver causes the Upload Session (and all subsequent parts to be deleted).
     It is post_delete because otherwise we get an error (possibly a recursive loop)."""
-    instance.bag.delete(False)
     instance.upload_session.delete(False)
 
 
@@ -249,14 +208,6 @@ class BagGroupAdmin(ReadOnlyAdmin):
         '-created_by',
     ]
 
-    actions = [
-        'export_caais_csv',
-        'export_atom_2_6_csv',
-        'export_atom_2_3_csv',
-        'export_atom_2_2_csv',
-        'export_atom_2_1_csv',
-    ]
-
     def has_add_permission(self, request):
         return False
 
@@ -265,31 +216,6 @@ class BagGroupAdmin(ReadOnlyAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return obj and request.user.is_superuser
-
-    def export_caais_csv(self, request, queryset):
-        related_bags = Submission.objects.filter(part_of_group__in=queryset)
-        return export_bag_csv(related_bags, ExportVersion.CAAIS_1_0)
-    export_caais_csv.short_description = 'Export CAAIS 1.0 CSV for Bags in Selected'
-
-    def export_atom_2_6_csv(self, request, queryset):
-        related_bags = Submission.objects.filter(part_of_group__in=queryset)
-        return export_bag_csv(related_bags, ExportVersion.ATOM_2_6)
-    export_atom_2_6_csv.short_description = 'Export AtoM 2.6 Accession CSV for Bags in Selected'
-
-    def export_atom_2_3_csv(self, request, queryset):
-        related_bags = Submission.objects.filter(part_of_group__in=queryset)
-        return export_bag_csv(related_bags, ExportVersion.ATOM_2_3)
-    export_atom_2_3_csv.short_description = 'Export AtoM 2.3 Accession CSV for Bags in Selected'
-
-    def export_atom_2_2_csv(self, request, queryset):
-        related_bags = Submission.objects.filter(part_of_group__in=queryset)
-        return export_bag_csv(related_bags, ExportVersion.ATOM_2_2)
-    export_atom_2_2_csv.short_description = 'Export AtoM 2.2 Accession CSV for Bags in Selected'
-
-    def export_atom_2_1_csv(self, request, queryset):
-        related_bags = Submission.objects.filter(part_of_group__in=queryset)
-        return export_bag_csv(related_bags, ExportVersion.ATOM_2_1)
-    export_atom_2_1_csv.short_description = 'Export AtoM 2.1 Accession CSV for Bags in Selected'
 
 
 class BagGroupInline(admin.TabularInline):
@@ -361,7 +287,7 @@ class AppraisalAdmin(admin.ModelAdmin):
         ''' Delete the Appraisals from the Appraisals' Submissions' Bags (if Bag
         editing is allowed)
         '''
-        # Find appraisals in queryset with a bag and sort them by bag ID
+        # Find appraisals in queryset with a submission and sort them by submission ID
         appraisals_with_bags = queryset\
             .filter(~Q(submission=None))\
             .filter(~Q(submission__bag=None))\
@@ -441,26 +367,19 @@ class SubmissionAdmin(admin.ModelAdmin):
     ]
 
     actions = [
-        'export_caais_reports',
-        'export_caais_csv',
-        'export_atom_2_6_csv',
-        'export_atom_2_3_csv',
-        'export_atom_2_2_csv',
-        'export_atom_2_1_csv',
-        'export_reports',
     ]
 
     search_fields = [
         'id',
-        'bag__accession_title',
+        'title',
     ]
 
     list_display = [
+        'title',
         'submission_date',
         'id',
         'review_status',
         linkify('user'),
-        linkify('bag'),
     ]
 
     ordering = [
@@ -468,6 +387,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     ]
 
     readonly_fields = [
+        'extent_statement',
         'submission_date',
         'user',
     ]
@@ -526,27 +446,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         url = reverse('admin:index', current_app=self.admin_site.name)
         return HttpResponseRedirect(url)
 
-    def export_reports(self, request, queryset):
-        ''' Download an application/x-zip-compressed file containing reports
-        for each of the selected submissions.
-
-        Args:
-            request: The originating request
-            queryset: One or more submissions
-        '''
-        zipf = BytesIO()
-        with zipfile.ZipFile(zipf, 'w', zipfile.ZIP_DEFLATED, False) as zipped_reports:
-            for submission in queryset:
-                if submission and submission.bag:
-                    report = submission.get_report()
-                    zipped_reports.writestr(f'{submission.bag_name}.html', report)
-        zipf.seek(0)
-        response = HttpResponse(zipf, content_type='application/x-zip-compressed')
-        response['Content-Disposition'] = 'attachment; filename=exported-bag-reports.zip'
-        zipf.close()
-        return response
-    export_reports.short_description = 'Export CAAIS submission reports for Selected'
-
     def save_related(self, request, form, formsets, change):
         ''' Update Bag in case an Appraisal is added. Deleting inline Appraisals
         is not allowed, so the case of deleting from the formset is not handled.
@@ -572,7 +471,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             else:
                 messages.warning(request, gettext(
                     'A change to the appraisals was made to this submission that would normally '
-                    "have affected the Bag's bag-info.txt, but ALLOW_BAG_CHANGES is OFF, so no "
+                    "have affected the Bag's submission-info.txt, but ALLOW_BAG_CHANGES is OFF, so no "
                     'change was made to the Bag'
                 ))
 
@@ -594,25 +493,16 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not ALLOW_BAG_CHANGES:
             messages.warning(request, gettext(
                 "A change was made to this submission that would have affected the Bag's "
-                'bag-info.txt, but ALLOW_BAG_CHANGES is OFF, so no change was made to the Bag'
+                'submission-info.txt, but ALLOW_BAG_CHANGES is OFF, so no change was made to the Bag'
             ))
             super().save_model(request, obj, form, change)
             return
-
-        if 'accession_identifier' in form.changed_data:
-            updated_id = form.cleaned_data['accession_identifier']
-            obj.bag.update_accession_id(updated_id, commit=False)
-
-        if 'level_of_detail' in form.changed_data:
-            # TODO: Not sure what this LevelOfDetail function is for?
-            updated_choice = Submission.LevelOfDetail(form.cleaned_data['level_of_detail'])
-            obj.bag.update_level_of_detail(request.user, str(updated_choice.label), commit=False)
 
         obj.bag.save()
         super().save_model(request, obj, form, change)
 
     def recreate_zipped_bag(self, request, object_id):
-        """ Remove the existing bag for this submission and user, then recreate it.
+        """ Remove the existing submission for this submission and user, then recreate it.
 
         Args:
             request: The originating request
@@ -624,7 +514,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         return self.create_zipped_bag(request, object_id)
 
     def create_zipped_bag(self, request, object_id):
-        ''' Start a background job to create a downloadable bag
+        ''' Start a background job to create a downloadable submission
 
         Args:
             request: The originating request
@@ -636,13 +526,13 @@ class SubmissionAdmin(admin.ModelAdmin):
             if job:
                 # You should not get here, reload the submission page.
                 self.message_user(request, mark_safe(gettext(
-                    'A downloadable bag already exists for you. Check the Submission page for links to download and '
-                    'regenerate the bag.'
+                    'A downloadable submission already exists for you. Check the Submission page for links to download and '
+                    'regenerate the submission.'
                 )))
                 return HttpResponseRedirect(bag.get_admin_change_url())
             create_downloadable_bag.delay(bag, request.user)
             self.message_user(request, mark_safe(gettext(
-                'A downloadable bag is being generated. Check the Submission page for links access the bag.'
+                'A downloadable submission is being generated. Check the Submission page for links access the submission.'
             )))
             url = reverse('admin:recordtransfer_submission_changelist', current_app=self.admin_site.name)
             return HttpResponseRedirect(url)
@@ -653,31 +543,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         self.message_user(request, msg, messages.WARNING)
         admin_url = reverse('admin:index', current_app=self.admin_site.name)
         return HttpResponseRedirect(admin_url)
-
-    def export_caais_csv(self, request, queryset):
-        return export_bag_csv(queryset, ExportVersion.CAAIS_1_0)
-
-    export_caais_csv.short_description = 'Export CAAIS 1.0 CSV for Selected'
-
-    def export_atom_2_6_csv(self, request, queryset):
-        return export_bag_csv(queryset, ExportVersion.ATOM_2_6)
-
-    export_atom_2_6_csv.short_description = 'Export AtoM 2.6 Accession CSV for Selected'
-
-    def export_atom_2_3_csv(self, request, queryset):
-        return export_bag_csv(queryset, ExportVersion.ATOM_2_3)
-
-    export_atom_2_3_csv.short_description = 'Export AtoM 2.3 Accession CSV for Selected'
-
-    def export_atom_2_2_csv(self, request, queryset):
-        return export_bag_csv(queryset, ExportVersion.ATOM_2_2)
-
-    export_atom_2_2_csv.short_description = 'Export AtoM 2.2 Accession CSV for Selected'
-
-    def export_atom_2_1_csv(self, request, queryset):
-        return export_bag_csv(queryset, ExportVersion.ATOM_2_1)
-
-    export_atom_2_1_csv.short_description = 'Export AtoM 2.1 Accession CSV for Selected'
 
 
 class SubmissionInline(admin.TabularInline):

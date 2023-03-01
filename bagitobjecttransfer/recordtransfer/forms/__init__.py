@@ -2,7 +2,6 @@ from django.contrib.auth.forms import UserCreationForm
 
 from recordtransfer.forms.admin_forms import *
 from recordtransfer.forms.transfer_forms import *
-from recordtransfer.forms.metadata_forms import *
 from recordtransfer.models import User
 
 

@@ -10,15 +10,12 @@ from typing import Union
 import bagit
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 
-from caais.export import ExportVersion
-from caais.models import Metadata
 from recordtransfer import settings
 from recordtransfer.storage import OverwriteStorage, UploadedFileStorage
 
@@ -228,10 +225,10 @@ class BagGroup(models.Model):
 
 class Submission(models.Model):
     ''' The top-level object representing a user's submission. This object has
-    a user, a bag, and can have any number of appraisal statements linked to it
+    a user, a submission, and can have any number of appraisal statements linked to it
     '''
     class ReviewStatus(models.TextChoices):
-        ''' The status of the bag's review
+        ''' The status of the submission's review
         '''
         NOT_REVIEWED = 'NR', _('Not Reviewed')
         REVIEW_STARTED = 'RS', _('Review Started')
@@ -239,13 +236,14 @@ class Submission(models.Model):
 
     submission_date = models.DateTimeField()
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    bag = models.OneToOneField(Metadata, on_delete=models.CASCADE, null=True, related_name='submission')
+    title = models.CharField(max_length=255, null=True)
     review_status = models.CharField(max_length=2, choices=ReviewStatus.choices,
                                      default=ReviewStatus.NOT_REVIEWED)
     part_of_group = models.ForeignKey(BagGroup, on_delete=models.SET_NULL, blank=True, null=True)
     upload_session = models.ForeignKey(UploadSession, null=True, on_delete=models.CASCADE)
     uuid = models.UUIDField(default=uuid.uuid4)
     bag_name = models.CharField(max_length=256, null=True)
+    extent_statement = models.CharField(max_length=200, null=True)
 
     @property
     def user_folder(self):
@@ -253,31 +251,9 @@ class Submission(models.Model):
 
     @property
     def location(self):
-        """ Get the location on the file system for this bag
+        """ Get the location on the file system for this submission
         """
         return os.path.join(self.user_folder, self.bag_name)
-
-    @property
-    def extent_statements(self):
-        """ Return the first extent statement for this submission. """
-        for e in self.bag.extent_statements.get_queryset().all():
-            return e.quantity_and_type_of_units
-        return ''
-
-    def get_report(self):
-        ''' Create an HTML report for this submission
-
-        Returns:
-            (str): A string containing the report markup
-        '''
-        report_metadata = self.bag.get_caais_metadata()
-        report_metadata['section_1']['status'] = self.ReviewStatus(self.review_status).label
-        report_metadata['section_4']['appraisal_statement'] = self.appraisals.get_caais_metadata()
-        return render_to_string('recordtransfer/report/metadata_report.html', context={
-            'submission': self,
-            'current_date': timezone.now(),
-            'metadata': report_metadata,
-        })
 
     def get_admin_change_url(self):
         ''' Get the URL to change this object in the admin
@@ -285,42 +261,40 @@ class Submission(models.Model):
         view_name = 'admin:{0}_{1}_change'.format(self._meta.app_label, self._meta.model_name)
         return reverse(view_name, args=(self.pk,))
 
-    def get_admin_report_url(self):
-        ''' Get the URL to generate a report for this object in the admin
-        '''
-        view_name = 'admin:{0}_{1}_report'.format(self._meta.app_label, self._meta.model_name)
-        return reverse(view_name, args=(self.pk,))
-
     def get_admin_zip_url(self):
-        """ Get the URL to generate a zipped bag for this object in the admin """
+        """ Get the URL to generate a zipped submission for this object in the admin """
         view_name = f'admin:{self._meta.app_label}_{self._meta.model_name}_zip'
         return reverse(view_name, args=(self.pk,))
 
     def get_admin_regen_zip_url(self):
-        """ Get the URL to regenerate a zipped bag for this object in the admin """
+        """ Get the URL to regenerate a zipped submission for this object in the admin """
         view_name = f'admin:{self._meta.app_label}_{self._meta.model_name}_rezip'
         return reverse(view_name, args=(self.pk,))
 
     def __str__(self):
         return f'Submission by {self.user} at {self.submission_date}'
 
-    def flatten(self, version: ExportVersion = ExportVersion.CAAIS_1_0):
-        new_row = self.bag.flatten(version) if self.bag is not None else {}
-        new_row['status'] = self.ReviewStatus(self.review_status).label if self.review_status else ''
-        new_row.update(self.appraisals.flatten(version))
-        return new_row
+    def flatten(self):
+        metadata = {
+            'CONTACT-NAME': self.user.get_full_name(),
+            'CONTACT-EMAIL': str(self.user.email),
+            'INTERNAL-SENDER-DESCRIPTION': str(self.title),
+            'REVIEW-STATUS': self.ReviewStatus(self.review_status).label
+        }
+        metadata.update(self.appraisals.flatten())
+        return metadata
 
     def make_bag(self, algorithms: Union[str, list] = 'sha512', file_perms: str = '644',
                  move_files: bool = True, logger=None):
-        """ Create a BagIt bag on the file system for this Submission. The location of the BagIt bag is
+        """ Create a BagIt submission on the file system for this Submission. The location of the BagIt submission is
         determined by self.location. Checks the validity of the Bag post-creation to ensure that
         integrity is maintained. The data payload files come from the UploadSession associated with
-        this Bag. Sets self.bagging_date if the BagIt bag is created.
+        this Bag. Sets self.bagging_date if the BagIt submission is created.
 
         Args:
-            algorithms (Union[str, list]): The algorithms to generate the BagIt bag with
+            algorithms (Union[str, list]): The algorithms to generate the BagIt submission with
             file_perms (str): A string-based octal "chmod" number
-            move_files (bool): True to move uploaded files to the bag directory, False to create a
+            move_files (bool): True to move uploaded files to the submission directory, False to create a
                 copy of the files. If False, the file copies should be removed at a later time
             logger: A logger instance (optional)
         """
@@ -351,45 +325,45 @@ class Submission(models.Model):
             LOGGER.info(msg=('Created new user folder at "{0}"'.format(self.user_folder)))
 
         if os.path.exists(self.location):
-            LOGGER.warning(msg=('A bag already exists at "{0}"'.format(self.location)))
+            LOGGER.warning(msg=('A submission already exists at "{0}"'.format(self.location)))
             return {
                 'missing_files': [], 'bag_created': False, 'bag_valid': False,
                 'time_created': None
             }
 
         os.mkdir(self.location)
-        LOGGER.info(msg=('Created new bag folder at "{0}"'.format(self.user_folder)))
+        LOGGER.info(msg=('Created new submission folder at "{0}"'.format(self.user_folder)))
 
         if self.upload_session is not None:
             copied, missing = self.upload_session.copy_session_uploads(self.location, logger)
 
             if missing:
                 LOGGER.error(msg='One or more uploaded files is missing!')
-                LOGGER.info(msg=('Removing bag at "{0}" due to missing files'.format(self.location)))
+                LOGGER.info(msg=('Removing submission at "{0}" due to missing files'.format(self.location)))
                 self.remove_bag()
                 return {
                     'missing_files': missing, 'bag_created': False, 'bag_valid': False,
                     'time_created': None,
                 }
 
-        logger.info(msg=('Creating BagIt bag at "{0}"'.format(self.location)))
+        logger.info(msg=('Creating BagIt submission at "{0}"'.format(self.location)))
         logger.info(msg=('Using these checksum algorithm(s): {0}'.format(', '.join(algorithms))))
 
         bagit_info = self.flatten()
         bag = bagit.make_bag(self.location, bagit_info, checksums=algorithms)
 
-        logger.info(msg=('Setting file mode for bag payload files to {0}'.format(file_perms)))
+        logger.info(msg=('Setting file mode for submission payload files to {0}'.format(file_perms)))
         perms = int(file_perms, 8)
         for payload_file in bag.payload_files():
             payload_file_path = os.path.join(self.location, payload_file)
             os.chmod(payload_file_path, perms)
 
-        logger.info(msg=('Validating the bag created at "{0}"'.format(self.location)))
+        logger.info(msg=('Validating the submission created at "{0}"'.format(self.location)))
         valid = bag.is_valid()
 
         if not valid:
             logger.error(msg='Bag is INVALID!')
-            logger.info(msg=('Removing bag at "{0}" since it\'s invalid'.format(self.location)))
+            logger.info(msg=('Removing submission at "{0}" since it\'s invalid'.format(self.location)))
             self.remove_bag()
             return {
                 'missing_files': [], 'bag_created': False, 'bag_valid': False,
@@ -405,7 +379,7 @@ class Submission(models.Model):
         }
 
     def remove_bag(self):
-        """ Remove the BagIt bag if it exists. """
+        """ Remove the BagIt submission if it exists. """
         if os.path.exists(self.location):
             os.unlink(self.location)
 
@@ -413,7 +387,7 @@ class Submission(models.Model):
 class AppraisalManager(models.Manager):
     """ Custom manager for Appraisals """
 
-    def flatten(self, version: ExportVersion = ExportVersion.CAAIS_1_0):
+    def flatten(self):
         if self.get_queryset().count() == 0:
             return {}
 
@@ -425,30 +399,11 @@ class AppraisalManager(models.Manager):
             appraisal_values.append(appraisal.statement)
             appraisal_notes.append(appraisal.note or 'NULL')
 
-        if version == ExportVersion.CAAIS_1_0:
-            return {
-                'appraisalStatementType': '|'.join(appraisal_types),
-                'appraisalStatementValue': '|'.join(appraisal_values),
-                'appraisalStatementNote': '|'.join(appraisal_notes),
-            }
-        else:
-            return {
-                'appraisal': '|'.join([
-                    f'Appraisal Type: {x}; Statement: {y}; Notes: {z}' if z != 'NULL' else
-                    f'Appraisal Type: {x}; Statement: {y}' for
-                    x, y, z in zip(appraisal_types, appraisal_values, appraisal_notes)
-                ])
-            }
-
-    def get_caais_metadata(self):
-        appraisals = []
-        for appraisal in self.get_queryset().all():
-            appraisals.append({
-                'appraisal_statement_type': Appraisal.AppraisalType(appraisal.appraisal_type).label,
-                'appraisal_statement_value': appraisal.statement,
-                'appraisal_statement_note':  appraisal.note,
-            })
-        return appraisals
+        return {
+            'appraisalStatementType': '|'.join(appraisal_types),
+            'appraisalStatementValue': '|'.join(appraisal_values),
+            'appraisalStatementNote': '|'.join(appraisal_notes),
+        }
 
 
 class Appraisal(models.Model):
@@ -485,7 +440,7 @@ class Job(models.Model):
     ''' A background job executed by an admin user
     '''
     class JobStatus(models.TextChoices):
-        ''' The status of the bag's review
+        ''' The status of the submission's review
         '''
         NOT_STARTED = 'NS', _('Not Started')
         IN_PROGRESS = 'IP', _('In Progress')
@@ -511,14 +466,3 @@ class Job(models.Model):
 
     def __str__(self):
         return f'{self.name} (Created by {self.user_triggered})'
-
-
-class SavedTransfer(models.Model):
-    """ A saved transfer """
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    last_updated = models.DateTimeField(unique=True)
-    current_step = models.CharField(max_length=20, null=False)
-    step_data = models.BinaryField(default=b'')
-
-    def __str__(self):
-        return f"Transfer of {self.last_updated} by {self.user}"

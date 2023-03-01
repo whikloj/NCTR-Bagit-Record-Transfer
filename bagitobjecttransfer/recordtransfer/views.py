@@ -1,5 +1,3 @@
-import datetime
-import pickle
 from typing import Union
 import logging
 
@@ -7,7 +5,6 @@ import clamd
 from django.contrib import messages
 from django.contrib.auth import login
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_text
@@ -17,12 +14,10 @@ from django.views.decorators.http import require_http_methods
 from django.views.generic import TemplateView, FormView, UpdateView
 from formtools.wizard.views import SessionWizardView
 
-from caais.models import RightsType, SourceRole, SourceType
 from recordtransfer import settings
-from recordtransfer.models import UploadedFile, UploadSession, User, BagGroup, Submission, SavedTransfer
-from recordtransfer.jobs import bag_user_files, send_user_activation_email, bag_metadata
-from recordtransfer.settings import CLAMAV_HOST, CLAMAV_PORT, CLAMAV_ENABLED, MAX_SAVED_TRANSFER_COUNT, \
-    METADATA_TRANSFER_ENABLED, FILE_TRANSFER_ENABLED
+from recordtransfer.models import UploadedFile, UploadSession, User, BagGroup, Submission
+from recordtransfer.jobs import bag_user_files, send_user_activation_email
+from recordtransfer.settings import CLAMAV_HOST, CLAMAV_PORT, CLAMAV_ENABLED
 from recordtransfer.utils import get_human_readable_file_count, get_human_readable_size
 from recordtransfer.forms import SignUpForm, UserProfileForm
 from recordtransfer.tokens import account_activation_token
@@ -62,24 +57,12 @@ class UserProfile(UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super(UserProfile, self).get_context_data(**kwargs)
-        context['in_process_submissions'] = SavedTransfer.objects.filter(user=self.request.user)\
-            .order_by('-last_updated')
         context['user_submissions'] = Submission.objects.filter(user=self.request.user).order_by('-submission_date')
         return context
 
     def form_valid(self, form):
         messages.success(self.request, 'Preferences updated')
         return super().form_valid(form)
-
-    def get(self, request, *args, **kwargs):
-        if 'delete_transfer' in request.GET:
-            transfers = SavedTransfer.objects.filter(
-                user=self.request.user,
-                id=request.GET.get('delete_transfer')
-            )
-            for transfer in transfers:
-                transfer.delete()
-        return super().get(request, *args, **kwargs)
 
 
 class About(TemplateView):
@@ -109,25 +92,6 @@ class ActivationInvalid(TemplateView):
     ''' The page a user sees if their account could not be activated '''
     template_name = 'recordtransfer/activationinvalid.html'
 
-
-class TransferSelection(TemplateView):
-    """ Page to choose which type of transfer to perform """
-    template_name = 'recordtransfer/transfer_choice.html'
-
-    def get(self, request, *args, **kwargs):
-        # If only one form is enabled, skip the selection form.
-        if METADATA_TRANSFER_ENABLED and not FILE_TRANSFER_ENABLED:
-            return HttpResponseRedirect('recordtransfer:metadata_transfer')
-        elif not METADATA_TRANSFER_ENABLED and FILE_TRANSFER_ENABLED:
-            return HttpResponseRedirect('recordtransfer:file_transfer')
-        else:
-            return super().get(request, args, kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data()
-        context['metadata_transfer_enabled'] = METADATA_TRANSFER_ENABLED
-        context['file_transfer_enabled'] = FILE_TRANSFER_ENABLED
-        return context
 
 class CreateAccount(FormView):
     ''' Allows a user to create a new account with the SignUpForm. When the form is submitted
@@ -163,228 +127,11 @@ def activate_account(request, uidb64, token):
     return HttpResponseRedirect(reverse('recordtransfer:activationinvalid'))
 
 
-class AbstractTransferWizard(SessionWizardView):
-    """ Abstract form wizard to hold some common elements. """
-    _TEMPLATES = {}
-
-    def get_template_names(self):
-        ''' Retrieve the name of the template for the current step '''
-        step_name = self.steps.current
-        return [self._TEMPLATES[step_name]["templateref"]]
-
-    def get_form_initial(self, step):
-        initial = self.initial_dict.get(step, {})
-        return initial
-
-    def get_context_data(self, form, **kwargs):
-        ''' Retrieve context data for the current form template.
-
-        Args:
-            form: The form to display to the user.
-
-        Returns:
-            dict: A dictionary of context data to be used to render the form template.
-        '''
-        context = super().get_context_data(form, **kwargs)
-        step_name = self.steps.current
-        context.update({'form_title': self._TEMPLATES[step_name]['formtitle']})
-        if 'infomessage' in self._TEMPLATES[step_name]:
-            context.update({'info_message': self._TEMPLATES[step_name]['infomessage']})
-        return context
-
-
-class TransferFormWizard(AbstractTransferWizard):
+class TransferFormWizard(SessionWizardView):
     ''' A multi-page form for collecting user metadata and uploading files. Uses a form wizard. For
     more info, visit this link: https://django-formtools.readthedocs.io/en/latest/wizard.html
     '''
 
-    _TEMPLATES = {
-        "acceptlegal": {
-            "templateref": "recordtransfer/transferform_legal.html",
-            "formtitle": gettext("Legal Agreement"),
-        },
-        "contactinfo": {
-            "templateref": "recordtransfer/transferform_standard.html",
-            "formtitle": gettext("Contact Information"),
-            "infomessage": gettext(
-                "Enter your contact information in case you need to be contacted by one of our "
-                "archivists regarding your transfer"
-            )
-        },
-        "sourceinfo": {
-            "templateref": "recordtransfer/transferform_sourceinfo.html",
-            "formtitle": gettext("Source Information"),
-            "infomessage": gettext(
-                "Enter the info for the source of the records. The source is the person or entity "
-                "that created the records or is holding the records at the moment. If this is you, "
-                "put your own information in"
-            )
-        },
-        "recorddescription": {
-            "templateref": "recordtransfer/transferform_standard.html",
-            "formtitle": gettext("Record Description"),
-            "infomessage": gettext(
-                "Provide a brief description of the records you're transferring"
-            )
-        },
-        "rights": {
-            "templateref": "recordtransfer/transferform_rights.html",
-            "formtitle": gettext("Record Rights"),
-            "infomessage": gettext(
-                "Enter any associated rights that apply to the records. Add as many rights "
-                "sections as you like using the + More button. You may enter another type of "
-                "rights if the dropdown does not contain the type of rights you're looking for."
-            )
-        },
-        "otheridentifiers": {
-            "templateref": "recordtransfer/transferform_formset.html",
-            "formtitle": gettext("Other Identifiers (Optional)"),
-            "infomessage": gettext(
-                "This step is optional, if you do not have any other IDs associated with the "
-                "records, go to the next step"
-            )
-        },
-    }
-
-    def get(self, request, *args, **kwargs):
-        resume_id = request.GET.get('resume_transfer', None)
-        if resume_id:
-            transfer = SavedTransfer.objects.filter(user=self.request.user, id=resume_id).first()
-            if transfer is None:
-                LOGGER.error(
-                    f"Expected at least 1 saved transfers for user {self.request.user} and ID {resume_id}, found 0"
-                )
-            else:
-                self.storage.data = pickle.loads(transfer.step_data)['past']
-                self.storage.current_step = transfer.current_step
-                return self.render(self.get_form())
-        return super().get(self, request, *args, **kwargs)
-
-    def post(self, *args, **kwargs):
-        save_form_step = self.request.POST.get('save_form_step', None)
-        if save_form_step and save_form_step in self.steps.all:
-            resume_id = self.request.GET.get('resume_transfer', None)
-            if resume_id:
-                transfer = SavedTransfer.objects.filter(user=self.request.user, id=resume_id).first()
-            else:
-                transfer = SavedTransfer()
-            transfer.current_step = save_form_step
-            # Make a dict of form element names to values to store. Elements are prefixed with "<step_name>-"
-            current_data = {f: self.request.POST[f] for f in self.request.POST.keys()
-                            if f.startswith(save_form_step + "-")}
-            transfer.user = self.request.user
-            transfer.last_updated = datetime.datetime.now(timezone.get_current_timezone())
-            transfer.step_data = pickle.dumps({'past': self.storage.data, 'current': current_data })
-            transfer.save()
-            return redirect('recordtransfer:userprofile')
-        else:
-            return super().post(*args, **kwargs)
-
-    def get_form_initial(self, step):
-        initial = super().get_form_initial(step)
-        resume_id = self.request.GET.get('resume_transfer', None)
-        if resume_id is not None:
-            transfer = SavedTransfer.objects.filter(user=self.request.user, id=resume_id).first()
-            if step == transfer.current_step:
-                data = pickle.loads(transfer.step_data)['current']
-                for (k, v) in data.items():
-                    initial[k] = v
-        if step == 'contactinfo':
-            curr_user = self.request.user
-            initial['contact_name'] = f'{curr_user.first_name} {curr_user.last_name}'
-            initial['email'] = str(curr_user.email)
-        return initial
-
-    def get_context_data(self, form, **kwargs):
-        ''' Retrieve context data for the current form template.
-
-        Args:
-            form: The form to display to the user.
-
-        Returns:
-            dict: A dictionary of context data to be used to render the form template.
-        '''
-        context = super().get_context_data(form, **kwargs)
-        step_name = self.steps.current
-        if step_name == 'rights':
-            all_rights = RightsType.objects.all().exclude(name='Other')
-            context.update({'rights': all_rights})
-        elif step_name == 'sourceinfo':
-            all_roles = SourceRole.objects.all().exclude(name='Other')
-            all_types = SourceType.objects.all().exclude(name='Other')
-            context.update({
-                'source_roles': all_roles,
-                'source_types': all_types,
-            })
-        resume_id = self.request.GET.get('resume_transfer', None)
-        max_saves = SavedTransfer.objects.filter(user=self.request.user).count()
-        if MAX_SAVED_TRANSFER_COUNT == 0:
-            # If MAX_SAVED_TRANSFER_COUNT is 0, then don't show the save form button.
-            save_form_state = 'off'
-        elif resume_id is None and max_saves >= MAX_SAVED_TRANSFER_COUNT:
-            # if the count of saved transfers is equal to or more than the maximum and we are NOT editing an existing
-            # transfer, disable the save form button.
-            save_form_state = 'disabled'
-        else:
-            # else enable the button.
-            save_form_state = 'on'
-        context.update({'save_form_state': save_form_state})
-        return context
-
-    def get_all_cleaned_data(self):
-        cleaned_data = super().get_all_cleaned_data()
-
-        start_date = cleaned_data['start_date_of_material']
-        end_date = cleaned_data['end_date_of_material']
-        if settings.USE_DATE_WIDGETS:
-            # Convert the four date-related fields to a single date
-            start_date = start_date.strftime(r'%Y-%m-%d')
-            end_date = end_date.strftime(r'%Y-%m-%d')
-            if cleaned_data['start_date_is_approximate']:
-                start_date = settings.APPROXIMATE_DATE_FORMAT.format(date=start_date)
-            if cleaned_data['end_date_is_approximate']:
-                end_date = settings.APPROXIMATE_DATE_FORMAT.format(date=end_date)
-
-        date_of_material = start_date if start_date == end_date else f'{start_date} - {end_date}'
-        cleaned_data['date_of_material'] = date_of_material
-        cleaned_data = TransferFormWizard.delete_keys(cleaned_data, [
-            'start_date_is_approximate',
-            'start_date_of_material',
-            'start_date_of_material_text',
-            'end_date_is_approximate',
-            'end_date_of_material',
-            'end_date_of_material_text'
-        ])
-
-        # Add dates for events
-        current_time = timezone.localtime(timezone.now()).strftime(r'%Y-%m-%d %H:%M:%S %Z')
-        cleaned_data['action_date'] = current_time
-        cleaned_data['event_date'] = current_time
-
-        return cleaned_data
-
-    @staticmethod
-    def delete_keys(form_data, keys):
-        for key in keys:
-            if key in form_data:
-                del form_data[key]
-        return form_data
-
-    def done(self, form_list, **kwargs):
-        ''' Retrieves all of the form data, and creates a bag from it asynchronously.
-
-        Args:
-            form_list: The list of forms the user filled out.
-
-        Returns:
-            HttpResponseRedirect: Redirects the user to the Transfer Sent page.
-        '''
-        form_data = self.get_all_cleaned_data()
-        bag_metadata.delay(form_data, self.request.user)
-        return HttpResponseRedirect(reverse('recordtransfer:transfersent'))
-
-
-class FileTransferFormWizard(AbstractTransferWizard):
     _TEMPLATES = {
         "acceptlegal": {
             "templateref": "recordtransfer/transferform_legal.html",
@@ -407,15 +154,14 @@ class FileTransferFormWizard(AbstractTransferWizard):
         },
     }
 
-    def get(self, request, *args, **kwargs):
-        if self.steps.current == 'acceptlegal' and CLAMAV_ENABLED:
-            clamd_socket = clamd.ClamdNetworkSocket(CLAMAV_HOST, CLAMAV_PORT)
-            try:
-                clamd_socket.ping()
-            except clamd.ClamdError as exc:
-                LOGGER.error("Unable to ping ClamAV", exc_info=exc)
-                return HttpResponseRedirect(reverse('recordtransfer:systemerror'))
-        return super().get(self, request, *args, **kwargs)
+    def get_template_names(self):
+        ''' Retrieve the name of the template for the current step '''
+        step_name = self.steps.current
+        return [self._TEMPLATES[step_name]["templateref"]]
+
+    def get_form_initial(self, step):
+        initial = self.initial_dict.get(step, {})
+        return initial
 
     def get_form_kwargs(self, step=None):
         kwargs = super().get_form_kwargs(step)
@@ -424,18 +170,25 @@ class FileTransferFormWizard(AbstractTransferWizard):
             kwargs['users_groups'] = users_groups
         return kwargs
 
-    def done(self, form_list, **kwargs):
-        ''' Retrieves all of the form data, and creates a bag from it asynchronously.
+    def get_context_data(self, form, **kwargs):
+        ''' Retrieve context data for the current form template.
 
         Args:
-            form_list: The list of forms the user filled out.
+            form: The form to display to the user.
 
         Returns:
-            HttpResponseRedirect: Redirects the user to the Transfer Sent page.
+            dict: A dictionary of context data to be used to render the form template.
         '''
-        form_data = self.get_all_cleaned_data()
-        bag_user_files.delay(form_data, self.request.user)
-        return HttpResponseRedirect(reverse('recordtransfer:transfersent'))
+        context = super().get_context_data(form, **kwargs)
+        step_name = self.steps.current
+        context.update({'form_title': self._TEMPLATES[step_name]['formtitle']})
+        if 'infomessage' in self._TEMPLATES[step_name]:
+            context.update({'info_message': self._TEMPLATES[step_name]['infomessage']})
+        if step_name == 'grouptransfer':
+            users_groups = BagGroup.objects.filter(created_by=self.request.user)
+            context.update({'users_groups': users_groups})
+        context.update({'save_form_state': 'disabled'})
+        return context
 
     def get_all_cleaned_data(self):
         cleaned_data = super().get_all_cleaned_data()
@@ -450,24 +203,21 @@ class FileTransferFormWizard(AbstractTransferWizard):
         )
 
         cleaned_data['quantity_and_type_of_units'] = '{0}, totalling {1}'.format(count, size)
+
         return cleaned_data
 
-    def get_context_data(self, form, **kwargs):
-        ''' Retrieve context data for the current form template.
+    def done(self, form_list, **kwargs):
+        ''' Retrieves all of the form data, and creates a submission from it asynchronously.
 
         Args:
-            form: The form to display to the user.
+            form_list: The list of forms the user filled out.
 
         Returns:
-            dict: A dictionary of context data to be used to render the form template.
+            HttpResponseRedirect: Redirects the user to the Transfer Sent page.
         '''
-        context = super().get_context_data(form, **kwargs)
-        step_name = self.steps.current
-        if step_name == 'grouptransfer':
-            users_groups = BagGroup.objects.filter(created_by=self.request.user)
-            context.update({'users_groups': users_groups})
-        context.update({'save_form_state': 'disabled'})
-        return context
+        form_data = self.get_all_cleaned_data()
+        bag_user_files.delay(form_data, self.request.user)
+        return HttpResponseRedirect(reverse('recordtransfer:transfersent'))
 
 
 @require_http_methods(['POST'])

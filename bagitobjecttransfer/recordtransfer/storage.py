@@ -8,7 +8,7 @@ class OverwriteStorage(Storage):
     ''' Overwrites files in storage if they have the same name.
 
     Django's default method of storing files named the same thing is to append a unique suffix to
-    the file name and saving the duplicate file there. This class overrides that behviour and
+    the file name and saving the duplicate file there. This class overrides that behaviour and
     overwrites any file being saved with a path that already exists.
     '''
     def _save(self, name, content):

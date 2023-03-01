@@ -370,7 +370,7 @@ $(() => {
     }
 
     $("#file-dropzone").dropzone({
-        url: "/file_transfer/uploadfile/",
+        url: "/transfer/uploadfile/",
         paramName: "upload_files",
         addRemoveLinks: true,
         autoProcessQueue: false,
@@ -404,7 +404,7 @@ $(() => {
             }
             else {
                 $.post({
-                    url: '/file_transfer/checkfile/',
+                    url: '/transfer/checkfile/',
                     data: {
                         'filename': file.name,
                         'filesize': file.size,
@@ -444,7 +444,9 @@ $(() => {
             submitButton.addEventListener("click", (event) => {
                 event.preventDefault()
                 event.stopPropagation()
-
+                if (!document.getElementById('id_uploadfiles-submission_title').reportValidity()) {
+                    return;
+                }
                 if (issueFiles.length > 0) {
                     alert('One or more files cannot be uploaded. Remove them before submitting')
                 }

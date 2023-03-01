@@ -16,7 +16,6 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.text import slugify
 from django.template.loader import render_to_string
 
-from recordtransfer.caais import convert_form_data_to_metadata
 from recordtransfer.models import BagGroup, UploadedFile, UploadSession, User, Job, Submission
 from recordtransfer.settings import DO_NOT_REPLY_USERNAME, ARCHIVIST_EMAIL, BAG_CHECKSUMS
 from recordtransfer.tokens import account_activation_token
@@ -36,45 +35,6 @@ def _get_admin_recipient_list(subject):
     LOGGER.info(msg=('Found {0} Users(s) to send email to: {1}'.format(len(user_list), user_list)))
     return [str(e) for e in recipients.values_list('email', flat=True)]
 
-@django_rq.job
-def bag_metadata(form_data: dict, user_submitted: User):
-    """ Create database models for the submitted metadata. Sends an email to the submitting user and staff members
-    who receive submission email updates.
-
-    Args:
-        form_data (dict): A dictionary of the cleaned form data from the metadata form.
-        user_submitted (User): The user who submitted the form.
-    """
-    LOGGER.info(msg='Creating a metadata submission from the transfer submitted by {0}'.format(
-        str(user_submitted))
-    )
-
-    LOGGER.info(msg='Creating serializable CAAIS metadata from form data')
-    metadata = convert_form_data_to_metadata(form_data)
-    title = metadata.accession_title
-    abbrev_title = title if len(title) <= 20 else title[0:20]
-
-    bag_name = '{username}_{datetime}_{title}'.format(
-        username=slugify(user_submitted),
-        datetime=timezone.localtime(timezone.now()).strftime(r'%Y%m%d-%H%M%S'),
-        title=slugify(abbrev_title))
-
-    LOGGER.info(msg=('Created name for bag: "{0}"'.format(bag_name)))
-
-    LOGGER.info('Creating metadata Submission object linked to new metadata')
-    new_submission = Submission(
-        submission_date=timezone.now(),
-        user=user_submitted,
-        bag=metadata,
-        bag_name=bag_name,
-    )
-    new_submission.save()
-
-    LOGGER.info('Sending transfer success email to administrators')
-    send_bag_creation_success.delay(form_data, new_submission)
-    LOGGER.info('Sending thank you email to user')
-    send_thank_you_for_your_transfer.delay(form_data, new_submission)
-
 
 @django_rq.job
 def bag_user_files(form_data: dict, user_submitted: User):
@@ -93,18 +53,23 @@ def bag_user_files(form_data: dict, user_submitted: User):
     LOGGER.info(msg=('Fetching session with the token {0}'.format(token)))
     upload_session = UploadSession.objects.filter(token=token).first()
 
-    bag_name = '{username}_{datetime}'.format(
+    title = form_data['submission_title']
+    abbrev_title = title if len(title) <= 20 else title[0:20]
+    bag_name = '{username}_{datetime}_{title}'.format(
         username=slugify(user_submitted),
-        datetime=timezone.localtime(timezone.now()).strftime(r'%Y%m%d-%H%M%S'))
+        datetime=timezone.localtime(timezone.now()).strftime(r'%Y%m%d-%H%M%S'),
+        title=slugify(abbrev_title))
 
-    LOGGER.info(msg=('Created name for bag: "{0}"'.format(bag_name)))
+    LOGGER.info(msg=('Created name for submission: "{0}"'.format(bag_name)))
 
     LOGGER.info('Creating file Submission object linked to new metadata')
     new_submission = Submission(
+        title=title,
         submission_date=timezone.now(),
         user=user_submitted,
         upload_session=upload_session,
         bag_name=bag_name,
+        extent_statement=form_data['quantity_and_type_of_units'],
     )
     new_submission.save()
 
@@ -135,35 +100,35 @@ def bag_user_files(form_data: dict, user_submitted: User):
 
 
 @django_rq.job
-def create_downloadable_bag(bag: Submission, user_triggered: User):
+def create_downloadable_bag(submission: Submission, user_triggered: User):
     ''' Create a zipped bag that a user can download using a Job model.
 
     Args:
-        bag (Submission): The submission to zip up for users to download
+        submission (Submission): The submission to zip up for users to download
         user_triggered (User): The user who triggered this new Job creation
     '''
-    LOGGER.info(msg='Creating zipped bag from {0}'.format(str(bag.location)))
+    LOGGER.info(msg='Creating zipped submission from {0}'.format(str(submission.location)))
 
     description = (
-        '{user} triggered this job to generate a download link for the bag '
+        '{user} triggered this job to generate a download link for the submission '
         '{name}'
-    ).format(user=str(user_triggered), name=bag.bag_name)
+    ).format(user=str(user_triggered), name=submission.bag_name)
 
-    if not os.path.exists(bag.location):
-        LOGGER.info(msg=f'No bag exists at {bag.location}, creating it now.')
-        result = bag.make_bag(algorithms=BAG_CHECKSUMS)
+    if not os.path.exists(submission.location):
+        LOGGER.info(msg=f'No submission exists at {submission.location}, creating it now.')
+        result = submission.make_bag(algorithms=BAG_CHECKSUMS)
         if len(result['missing_files']) != 0 or not result['bag_created'] or not result['bag_valid'] or \
                 result['time_created'] is None:
-            # Because we didn't generate the bag directory, exit.
+            # Because we didn't generate the submission directory, exit.
             return
 
     new_job = Job(
-        name=f'Generate Download Link for {str(bag)}',
+        name=f'Generate Download Link for {str(submission)}',
         description=description,
         start_time=timezone.now(),
         user_triggered=user_triggered,
         job_status=Job.JobStatus.NOT_STARTED,
-        submission=bag
+        submission=submission
     )
     new_job.save()
 
@@ -175,11 +140,11 @@ def create_downloadable_bag(bag: Submission, user_triggered: User):
         LOGGER.info(msg='Zipping directory to an in-memory file ...')
         zipf = BytesIO()
         zipped_bag = zipfile.ZipFile(zipf, 'w', zipfile.ZIP_DEFLATED, False)
-        zip_directory(bag.location, zipped_bag)
+        zip_directory(submission.location, zipped_bag)
         zipped_bag.close()
         LOGGER.info(msg='Zipped directory successfully')
 
-        file_name = f'{user_triggered.username}-{bag.bag_name}.zip'
+        file_name = f'{user_triggered.username}-{submission.bag_name}.zip'
         LOGGER.info(msg='Saving zip file as {0} ...'.format(file_name))
         new_job.attached_file.save(file_name, ContentFile(zipf.getvalue()), save=True)
         LOGGER.info(msg='Saved file successfully')
@@ -188,22 +153,22 @@ def create_downloadable_bag(bag: Submission, user_triggered: User):
         new_job.end_time = timezone.now()
         new_job.save()
 
-        LOGGER.info('Downloadable bag created successfully')
+        LOGGER.info('Downloadable submission created successfully')
     except Exception as exc:
         new_job.job_status = Job.JobStatus.FAILED
         new_job.save()
-        LOGGER.error(msg=('Creating zipped bag failed: {0}'.format(str(exc))))
+        LOGGER.error(msg=('Creating zipped submission failed: {0}'.format(str(exc))))
     finally:
         if zipf is not None:
             zipf.close()
-        if os.path.exists(bag.location):
-            LOGGER.info(msg="Removing bag from disk after zip generation.")
-            shutil.rmtree(bag.location)
+        if os.path.exists(submission.location):
+            LOGGER.info(msg="Removing submission from disk after zip generation.")
+            shutil.rmtree(submission.location)
 
 
 @django_rq.job
 def send_bag_creation_success(form_data: dict, submission: Submission):
-    ''' Send an email to users who get bag email updates that a user submitted a new bag and there
+    ''' Send an email to users who get submission email updates that a user submitted a new submission and there
     were no errors.
 
     Args:
@@ -238,7 +203,7 @@ def send_bag_creation_success(form_data: dict, submission: Submission):
 
 @django_rq.job
 def send_bag_creation_failure(form_data: dict, user_submitted: User):
-    ''' Send an email to users who get bag email updates that a user submitted a new bag and there
+    ''' Send an email to users who get submission email updates that a user submitted a new submission and there
     WERE errors.
 
     Args:
@@ -404,6 +369,7 @@ def send_mail_with_logs(recipients: list, from_email: str, subject, template_nam
             LOGGER.info(msg='{0} emails sent'.format(num_recipients))
     except smtplib.SMTPException as exc:
         LOGGER.error(msg=('Error when sending email to user: {0}'.format(str(exc))))
+
 
 @django_rq.job
 def clean_undeleted_temp_files(hours=12):

@@ -34,65 +34,11 @@ MAX_TOTAL_UPLOAD_SIZE = config('MAX_TOTAL_UPLOAD_SIZE', default=256, cast=int)
 MAX_SINGLE_UPLOAD_SIZE = config('MAX_SINGLE_UPLOAD_SIZE', default=64, cast=int)
 MAX_TOTAL_UPLOAD_COUNT = config('MAX_TOTAL_UPLOAD_COUNT', default=40, cast=int)
 
-# Use Date widgets for record dates or use free text fields.
-
-USE_DATE_WIDGETS = config('USE_DATE_WIDGETS', default=True, cast=bool)
-
 # CLAMAV configuration.
 
 CLAMAV_ENABLED = config('CLAMAV_ENABLED', default=False, cast=bool)
 CLAMAV_HOST = config('CLAMAV_HOST', default=None)
 CLAMAV_PORT = config('CLAMAV_PORT', default=3310, cast=int)
-
-# Maximum number of saved transfers per user.
-
-MAX_SAVED_TRANSFER_COUNT = config('MAX_SAVED_TRANSFER_COUNT', default=2, cast=int)
-
-# Use a controlled vocabulary for accession titles.
-
-USE_ACCESSION_TITLE_VOCABULARY = config('USE_ACCESSION_TITLE_VOCABULARY', default=False, cast=bool)
-
-# To disable one of the forms, both forms can't be disabled at the same time.
-
-METADATA_TRANSFER_ENABLED = config('METADATA_TRANSFER_ENABLED', default=True, cast=bool)
-FILE_TRANSFER_ENABLED = config('FILE_TRANSFER_ENABLED', default=True, cast=bool)
-
-# Default data to inject into metadata, after the user enters their own metadata
-
-DEFAULT_DATA = {
-    'section_1': {
-        'accession_identifier': 'Not assigned',
-        'repository': 'NCTR',
-        'archival_unit': 'NCTR Archives',
-        'acquisition_method': 'Digital Transfer',
-    },
-    'section_2': {
-    },
-    'section_3': {
-        'extent_statement_type': 'Extent received',
-        'extent_statement_note': 'Files counted automatically by application',
-    },
-    'section_4': {
-        'storage_location': 'Placeholder',
-        'material_assessment_statement_type': 'Physical Condition',
-        'material_assessment_statement_value': 'Record is digital, physical assessment is not possible'
-    },
-    'section_5': {
-        'event_type': 'Digital Object Transfer',
-        'event_agent': 'NCTR Record Transfer Portal',
-    },
-    'section_6': {
-    },
-    'section_7': {
-        'rules_or_conventions': 'Canadian Archival Accession Information Standards v1.0',
-        'action_type': 'Creation',
-        'action_agent': 'NCTR Record Transfer Portal',
-        'language_of_accession_record': 'en',
-    }
-}
-
-
-APPROXIMATE_DATE_FORMAT = config('APPROXIMATE_DATE_FORMAT', default='[ca. {date}]')
 
 # File types allowed to be uploaded to the backend. Do not use periods before the extension, and
 # ensure that all file extensions are lowercase.
