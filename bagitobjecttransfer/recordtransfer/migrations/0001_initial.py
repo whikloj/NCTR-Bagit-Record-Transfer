@@ -135,6 +135,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('auth', '0012_alter_user_first_name_max_length'),
+        ('dbtemplates', '0002_add_template_description')
     ]
 
     operations = [
@@ -233,4 +234,8 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
         ),
+        migrations.RunPython(create_groups),
+        migrations.RunPython(update_local_site),
+        migrations.RunPython(populate_permissions),
+        migrations.RunPython(populate_templates),
     ]
