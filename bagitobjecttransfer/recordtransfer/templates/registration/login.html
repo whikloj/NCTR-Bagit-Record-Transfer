@@ -5,41 +5,50 @@
 
 {% block content %}
     <div class="account-form-container">
-        <div class="account-page-title title-text">
-            {% trans "Login to your Account" %}
+        <ul class="account-method-list">
+            <li class="account-method-item active"><label for="account-method-azure">{% trans "Microsoft SSO" %}</label></li>
+            <li class="account-method-item"><label for="account-method-local">{% trans "Local account" %}</label></li>
+        </ul>
+        <div class="account-method active" id="account-method-azure">
+            <p><a href="{% url 'azure_signin:login' %}">{% trans "Click here to go to Microsoft log in form." %}</a></p>
         </div>
-
-        {% if form.non_field_errors %}
-            <div class="account-error">
-                {% trans "Your username or password was not correct." %}
+        <div class="account-method" id="account-method-local">
+            <div class="account-page-title title-text">
+                {% trans "Login to your Account" %}
             </div>
-        {% endif %}
 
-        <form method="post" action="{% url 'login' %}">
-            {% csrf_token %}
-            {% for field in form %}
-                {% if field.errors %}
-                    {% for error in field.errors %}
-                        <div class="flex-error">
-                            <label></label>
-                            <div class="field-error">{{ error }}</div>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-                <div class="flex-item">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
+            {% if form.non_field_errors %}
+                <div class="account-error">
+                    {% trans "Your username or password was not correct." %}
                 </div>
-            {% endfor %}
-            <div class="flex-item">
-                <label></label>
-                <button type="submit" class="blue-button">{% trans "Login" %}</button>
-            </div>
-        </form>
+            {% endif %}
 
-        <div id="forgot-password" class="flex-item">
-            <label></label>
-            <p><a href="{% url 'password_reset' %}">{% trans "Forgot your password?" %}</a></p>
+            <form method="post" action="{% url 'login' %}">
+                {% csrf_token %}
+                {% for field in form %}
+                    {% if field.errors %}
+                        {% for error in field.errors %}
+                            <div class="flex-error">
+                                <label></label>
+                                <div class="field-error">{{ error }}</div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    <div class="flex-item">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                    </div>
+                {% endfor %}
+                <div class="flex-item">
+                    <label></label>
+                    <button type="submit" class="blue-button">{% trans "Login" %}</button>
+                </div>
+            </form>
+
+            <div id="forgot-password" class="flex-item">
+                <label></label>
+                <p><a href="{% url 'password_reset' %}">{% trans "Forgot your password?" %}</a></p>
+            </div>
         </div>
     </div>
 {% endblock %}

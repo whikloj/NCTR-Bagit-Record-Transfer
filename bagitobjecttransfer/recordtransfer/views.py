@@ -2,12 +2,13 @@ from typing import Union
 import logging
 
 import clamd
+import uuid
 from django.contrib import messages
 from django.contrib.auth import login
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.utils.translation import gettext
 from django.views.decorators.http import require_http_methods
@@ -112,7 +113,7 @@ class CreateAccount(FormView):
 
 def activate_account(request, uidb64, token):
     try:
-        uid = force_text(urlsafe_base64_decode(uidb64))
+        uid = force_str(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)
     except (TypeError, ValueError, OverflowError, User.DoesNotExist):
         user = None
@@ -187,6 +188,17 @@ class TransferFormWizard(SessionWizardView):
         if step_name == 'grouptransfer':
             users_groups = BagGroup.objects.filter(created_by=self.request.user)
             context.update({'users_groups': users_groups})
+        elif step_name == 'uploadfiles':
+            context.update({
+                'msal': {
+                    'client_id': settings.FP_CLIENT_ID,
+                    'authority': 'https://login.microsoftonline.com/' + settings.FP_TENANT_ID,
+                    'redirect_uri': '/',
+                    'client_base_uri': 'https://onedrive.live.com/picker',
+                    'message_id': uuid.uuid4().hex[:6].upper(),
+                    'current_host': self.request.get_host(),
+                }
+            })
         context.update({'save_form_state': 'disabled'})
         return context
 

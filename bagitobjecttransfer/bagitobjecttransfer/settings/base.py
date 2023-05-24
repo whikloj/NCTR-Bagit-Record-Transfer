@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'django_rq',
     'captcha',
     'dbtemplates',
+    'azure_signin',
 ]
 
 MIDDLEWARE = [
@@ -33,6 +34,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.locale.LocaleMiddleware',
+]
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 ROOT_URLCONF = 'bagitobjecttransfer.urls'
@@ -61,6 +66,40 @@ TEMPLATES = [
         },
     },
 ]
+
+USE_AZURE_AD_LOGIN = config("USE_AZURE_AD_LOGIN", False)
+if USE_AZURE_AD_LOGIN:
+    AUTHENTICATION_BACKENDS += [
+        'azure_ad_auth.backends.AzureActiveDirectoryBackend',
+    ]
+    AAD_TENANT_ID = config("MS_TENANT_ID", "")
+    
+    AZURE_SIGNIN = {
+        "CLIENT_ID": config("MS_CLIENT_ID", ""),  # Mandatory
+        "CLIENT_SECRET": config("MS_CLIENT_SECRET", ""),  # Mandatory
+        "TENANT_ID": config("MS_TENANT_ID", ""),  # Mandatory
+        "SAVE_ID_TOKEN_CLAIMS": True,
+        "RENAME_ATTRIBUTES": [
+            # ("employeeNumber", "employee_id"),
+            # ("affiliationNumber", "omk2"),
+            ("ObjectId", "employee_id"),
+        ],  # Optional
+        "REDIRECT_URI": "http://localhost:8000/azure-signin/callback",  # Optional
+        "SCOPES": [
+        #    "User.Read",
+        ],  # Optional
+        "AUTHORITY": config("MS_AUTHORITY", "https://login.microsoftonline.com/common"),
+            # Optional "https://login.microsoftonline.com/<tenant id>" + or https://login.microsoftonline.com/common if multi-tenant
+        "LOGOUT_REDIRECT_URI": "http://localhost:8000/logout",  # Optional
+        "PUBLIC_URLS": [
+        #    "<public:view_name>",
+        ]  # Optional, public views accessible by non-authenticated users
+    }
+
+    LOGIN_URL = "azure_signin:login"
+    LOGIN_REDIRECT_URL = "/"  # Or any other endpoint
+    LOGOUT_REDIRECT_URL = LOGIN_REDIRECT_URL
+
 
 # Database primary key fields
 
@@ -108,8 +147,6 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/Winnipeg'
 
 USE_I18N = True
-
-USE_L10N = True
 
 USE_TZ = True
 

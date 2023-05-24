@@ -740,5 +740,12 @@ $(() => {
         $("button.close[data-dismiss=alert]").on("click", function(evt) {
             $(evt.currentTarget).parents(".alert-dismissible").hide();
         });
+        $(".account-method-item").on("click", function(evt) {
+            $(".account-method-item").removeClass("active");
+            $(evt.currentTarget).addClass("active");
+            var box = $('label', evt.currentTarget).attr('for');
+            $(".account-method").removeClass("active");
+            $("#" + box).addClass("active");
+        });
     });
 })

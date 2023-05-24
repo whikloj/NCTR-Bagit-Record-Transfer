@@ -17,6 +17,8 @@ from django.contrib import admin
 from django.contrib.auth.views import PasswordResetView
 from django.urls import include, path
 
+from bagitobjecttransfer.settings.base import USE_AZURE_AD_LOGIN
+
 urlpatterns = [
     path('admin/django_rq/', include('django_rq.urls')),
     path('admin/', admin.site.urls),
@@ -28,3 +30,10 @@ urlpatterns = [
     )),
     path('accounts/', include('django.contrib.auth.urls')),
 ]
+
+if USE_AZURE_AD_LOGIN:
+    # If using Microsoft login.
+    urlpatterns += [
+        path("azure-signin/", include("azure_signin.urls", namespace="azure_signin")),
+    ]
+

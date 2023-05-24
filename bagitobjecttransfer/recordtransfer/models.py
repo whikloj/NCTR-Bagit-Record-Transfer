@@ -124,7 +124,7 @@ class UploadSession(models.Model):
 
         if not files:
             logger.warning(msg=('No existing files found in the session {0}'.format(self.token)))
-            return ([], [])
+            return [], []
 
         verb = 'Moving' if delete else 'Copying'
         logger.info(msg=('{0} {1} temp files to {2}'.format(verb, len(files), destination)))
@@ -148,7 +148,7 @@ class UploadSession(models.Model):
 
             copied.append(str(new_path))
 
-        return (copied, missing)
+        return copied, missing
 
     def __str__(self):
         return f'{self.token} ({self.started_at})'
@@ -158,6 +158,7 @@ def session_upload_location(instance, filename):
     if instance.session:
         return '{0}/{1}'.format(instance.session.token, filename)
     return 'NOSESSION/{0}'.format(filename)
+
 
 class UploadedFile(models.Model):
     ''' Represents a file that a user uploaded during an upload session

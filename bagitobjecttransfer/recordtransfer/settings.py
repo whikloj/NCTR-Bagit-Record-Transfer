@@ -40,6 +40,10 @@ CLAMAV_ENABLED = config('CLAMAV_ENABLED', default=False, cast=bool)
 CLAMAV_HOST = config('CLAMAV_HOST', default=None)
 CLAMAV_PORT = config('CLAMAV_PORT', default=3310, cast=int)
 
+# Filepicker config
+FP_TENANT_ID = config('MS_FILE_PICKER_TENANT_ID', '')
+FP_CLIENT_ID = config('MS_FILE_PICKER_CLIENT_ID', '')
+
 # File types allowed to be uploaded to the backend. Do not use periods before the extension, and
 # ensure that all file extensions are lowercase.
 
