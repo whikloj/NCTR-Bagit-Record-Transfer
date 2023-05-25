@@ -28,6 +28,14 @@
     color: #ee7421;
 }
 
+.nav-link.inactive:hover,
+.nav-link.inactive:hover::after {
+    color: #333333;
+}
+.nav-link.inactive {
+   cursor: not-allowed;
+}
+
 .nav-logo {
     order: 0;
     flex: 1;
@@ -70,6 +78,11 @@
     line-height: 70px;
     position: absolute;
     margin-left: 10px;
+}
+
+.submission-perms-message {
+    border: 1px dashed #fe1111;
+    padding: .3rem;
 }
 
 /* Desktop menu (design is mobile-first) */

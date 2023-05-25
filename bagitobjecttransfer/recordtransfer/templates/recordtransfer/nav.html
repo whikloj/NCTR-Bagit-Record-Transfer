@@ -30,9 +30,15 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    {% if perms.recordtransfer.add_submission %}
                     <a class="nav-link main" href="{% url 'recordtransfer:transfer' %}">
                         {% trans "Transfer" %}
                     </a>
+                    {% else %}
+                    <span class="nav-link inactive">
+                        {% trans "Transfer" %}
+                    </span>
+                    {% endif %}
                 </li>
                 <li class="nav-item">
                     <a class="nav-link main" href="{% url 'logout' %}">
@@ -68,4 +74,11 @@
                 </li>
             </span>
         </ul>
+        {% if not perms.recordtransfer.add_submission %}
+        <div class="submission-perms-message">
+            {% blocktrans %}
+            You do not currently have permission to start a transfer. This permission will need to be granted by the site administrator.
+            {% endblocktrans %}
+        </div>
+        {% endif %}
     </nav>

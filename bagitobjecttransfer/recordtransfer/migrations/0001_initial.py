@@ -75,6 +75,16 @@ def populate_permissions(apps, schema_editor):
         if permission not in existing_permissions:
             group.permissions.add(permission)
 
+    # Now add permission for transfer to transfer_user
+    group = Group.objects.get(name='transfer_user')
+    existing_permissions = group.permissions.all()
+    for codename in (
+        'add_submission',
+    ):
+        permission = Permission.objects.get(codename=codename)
+        if permission not in existing_permissions:
+            group.permissions.add(permission)
+
 
 RECORDTRANSFER_PREFIX = 'recordtransfer'
 

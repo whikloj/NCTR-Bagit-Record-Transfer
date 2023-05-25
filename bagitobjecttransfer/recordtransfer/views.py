@@ -1,13 +1,13 @@
-from typing import Union
 import logging
+import uuid
+from typing import Union
 
 import clamd
-import uuid
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse, reverse_lazy
-from django.utils import timezone
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.utils.translation import gettext
@@ -15,14 +15,14 @@ from django.views.decorators.http import require_http_methods
 from django.views.generic import TemplateView, FormView, UpdateView
 from formtools.wizard.views import SessionWizardView
 
+from bagitobjecttransfer.settings.base import SITE_NAME_SHORT
 from recordtransfer import settings
-from recordtransfer.models import UploadedFile, UploadSession, User, BagGroup, Submission
-from recordtransfer.jobs import bag_user_files, send_user_activation_email
-from recordtransfer.settings import CLAMAV_HOST, CLAMAV_PORT, CLAMAV_ENABLED
-from recordtransfer.utils import get_human_readable_file_count, get_human_readable_size
 from recordtransfer.forms import SignUpForm, UserProfileForm
+from recordtransfer.jobs import bag_user_files, send_user_activation_email
+from recordtransfer.models import UploadedFile, UploadSession, User, BagGroup, Submission
+from recordtransfer.settings import CLAMAV_HOST, CLAMAV_PORT, CLAMAV_ENABLED
 from recordtransfer.tokens import account_activation_token
-
+from recordtransfer.utils import get_human_readable_file_count, get_human_readable_size
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ class UserProfile(UpdateView):
     def get_context_data(self, **kwargs):
         context = super(UserProfile, self).get_context_data(**kwargs)
         context['user_submissions'] = Submission.objects.filter(user=self.request.user).order_by('-submission_date')
+        context['site_name_short'] = SITE_NAME_SHORT
         return context
 
     def form_valid(self, form):
@@ -128,10 +129,11 @@ def activate_account(request, uidb64, token):
     return HttpResponseRedirect(reverse('recordtransfer:activationinvalid'))
 
 
-class TransferFormWizard(SessionWizardView):
+class TransferFormWizard(PermissionRequiredMixin, SessionWizardView):
     ''' A multi-page form for collecting user metadata and uploading files. Uses a form wizard. For
     more info, visit this link: https://django-formtools.readthedocs.io/en/latest/wizard.html
     '''
+    permission_required = 'recordtransfer.add_submission'
 
     _TEMPLATES = {
         "acceptlegal": {

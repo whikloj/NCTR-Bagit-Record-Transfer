@@ -22,7 +22,7 @@ INSTALLED_APPS = [
     'django_rq',
     'captcha',
     'dbtemplates',
-    'azure_signin',
+    'azure_auth',
 ]
 
 MIDDLEWARE = [
@@ -70,36 +70,21 @@ TEMPLATES = [
 USE_AZURE_AD_LOGIN = config("USE_AZURE_AD_LOGIN", False)
 if USE_AZURE_AD_LOGIN:
     AUTHENTICATION_BACKENDS += [
-        'azure_ad_auth.backends.AzureActiveDirectoryBackend',
+        'azure_auth.backends.AzureBackend',
     ]
     AAD_TENANT_ID = config("MS_TENANT_ID", "")
-    
-    AZURE_SIGNIN = {
+
+    AZURE_AUTH = {
         "CLIENT_ID": config("MS_CLIENT_ID", ""),  # Mandatory
         "CLIENT_SECRET": config("MS_CLIENT_SECRET", ""),  # Mandatory
-        "TENANT_ID": config("MS_TENANT_ID", ""),  # Mandatory
-        "SAVE_ID_TOKEN_CLAIMS": True,
-        "RENAME_ATTRIBUTES": [
-            # ("employeeNumber", "employee_id"),
-            # ("affiliationNumber", "omk2"),
-            ("ObjectId", "employee_id"),
-        ],  # Optional
-        "REDIRECT_URI": "http://localhost:8000/azure-signin/callback",  # Optional
-        "SCOPES": [
-        #    "User.Read",
-        ],  # Optional
-        "AUTHORITY": config("MS_AUTHORITY", "https://login.microsoftonline.com/common"),
-            # Optional "https://login.microsoftonline.com/<tenant id>" + or https://login.microsoftonline.com/common if multi-tenant
-        "LOGOUT_REDIRECT_URI": "http://localhost:8000/logout",  # Optional
-        "PUBLIC_URLS": [
-        #    "<public:view_name>",
-        ]  # Optional, public views accessible by non-authenticated users
+        "REDIRECT_URI": config("MS_REDIRECT_URL", ""), # Mandatory, and must match Azure app registration.
+        "SCOPES": ["User.Read"],
+        "AUTHORITY": config("MS_AUTHORITY", "https://login.microsoftonline.com/common"),   # Or https://login.microsoftonline.com/common if multi-tenant
+        #"LOGOUT_URI": "https://<domain>/logout",    # Optional
+        "PUBLIC_URLS": ["recordtransfer:index",]  # Optional, public views accessible by non-authenticated users
+        # "PUBLIC_PATHS": ['/go/',],  # Optional, public paths accessible by non-authenticated users
     }
-
-    LOGIN_URL = "azure_signin:login"
-    LOGIN_REDIRECT_URL = "/"  # Or any other endpoint
-    LOGOUT_REDIRECT_URL = LOGIN_REDIRECT_URL
-
+    LOGIN_URL = "azure-signin/login"
 
 # Database primary key fields
 
@@ -177,8 +162,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 FILE_UPLOAD_PERMISSIONS = 0o644
 
-# CAAIS dates
-
-CAAIS_UNKNOWN_DATE_TEXT = config('CAAIS_UNKNOWN_DATE_TEXT', cast=str, default='Unknown date')
-CAAIS_UNKNOWN_START_DATE = config('CAAIS_UNKNOWN_START_DATE', cast=str, default='1800-01-01')
-CAAIS_UNKNOWN_END_DATE = config('CAAIS_UNKNOWN_END_DATE', cast=str, default='2020-01-01')
+SITE_NAME = config("SITE_NAME", "National Centre for Truth and Reconciliation Record Transfer)")
+SITE_NAME_SHORT = config("SITE_NAME_SHORT", "NCTR Record Transfer")

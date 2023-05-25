@@ -34,6 +34,6 @@ urlpatterns = [
 if USE_AZURE_AD_LOGIN:
     # If using Microsoft login.
     urlpatterns += [
-        path("azure-signin/", include("azure_signin.urls", namespace="azure_signin")),
+        path("azure-signin/", include("azure_auth.urls"),),
     ]
 

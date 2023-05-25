@@ -93,11 +93,11 @@
                     </div>
                 </div>
             {% endif %}
-        {% else %}
+        {% elif perms.recordtransfer.add_submission %}
             <span>
                 {% url 'recordtransfer:transfer' as transfer_url %}
                 {% blocktrans %}
-                    You have not sent any records to the NCTR.
+                    You have not sent any records to the {{ site_name_short }}.
                     <a href="{{ transfer_url }}">Start a new transfer</a> to get started.
                 {% endblocktrans %}
             </span>
