@@ -22,8 +22,13 @@
     {% url 'recordtransfer:transfer' as pre_transfer_page %}
     <p>
         {% blocktrans %}
-            Welcome back! To start a new transfer, <a href="{{ pre_transfer_page }}">click here</a>.
+            Welcome back!
         {% endblocktrans %}
+        {% if perms.recordtransfer.add_submission %}
+            {% blocktrans %}
+                To start a new transfer, <a href="{{ pre_transfer_page }}">click here</a>.
+            {% endblocktrans %}
+        {% endif %}
     </p>
 {% else %}
     {% url 'login' as login %}
