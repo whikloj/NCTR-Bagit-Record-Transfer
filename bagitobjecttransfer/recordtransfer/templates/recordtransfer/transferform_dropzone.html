@@ -4,32 +4,22 @@
 
 {% block javascript %}
     {{ block.super }}
-    <script type='text/javascript'>
-        const MAX_TOTAL_UPLOAD_SIZE = parseFloat(({{ MAX_TOTAL_UPLOAD_SIZE }}).toFixed(2))
-        const MAX_SINGLE_UPLOAD_SIZE = parseFloat(({{ MAX_SINGLE_UPLOAD_SIZE }}).toFixed(2))
-        const MAX_TOTAL_UPLOAD_COUNT = parseFloat(({{ MAX_TOTAL_UPLOAD_COUNT }}).toFixed(2))
-    </script>
-    <script type="text/javascript" src="https://js.live.net/v7.2/OneDrive.js"></script>
+    <script type="text/javascript" src="https://alcdn.msauth.net/browser/2.19.0/js/msal-browser.min.js"></script>
     <script type="text/javascript">
-        function launchOneDrivePicker(){
-            const odOptions = {
-                clientId: '{{ msal.client_id }}',
-                action: 'download',
-                multiSelect: true,
-                advanced: {},
-                success: function(files) {
-                    var file_str = "";
-                    for (var file in files) {
-                        file_str += file + ", ";
-                    }
-                    window.alert(file_str);
-                },
-                cancel: function() { },
-                error: function(error) { window.alert("ERROR " + error); }
-            };
-            OneDrive.open(odOptions);
+        <!--
+        const msalParams = {
+            auth: {
+                authority: "{{ msal.authority }}",
+                clientId: "{{ msal.client_id }}",
+                redirectUri: "{{ msal.redirect_uri }}"
+            },
         }
+        const preToken = "{{ existingToken }}";
+        const app = new msal.PublicClientApplication(msalParams);
+        //-->
     </script>
+    <script type="text/javascript" src="{% static 'recordtransfer/js/ms_auth.js' %}"></script>
+    <script type="text/javascript" src="{% static 'recordtransfer/js/file_picker.js' %}"></script>
 {% endblock %}
 
 {% block buttonarrayclass %}flex-full-width-item{% endblock %}
@@ -64,7 +54,7 @@
                 </table>
             </div>
         </div>
-        <p><button onClick="launchOneDrivePicker()">Select files from OneDrive</button></p>
+        <p><button id="oneDrivePicker_launch">Select files from OneDrive</button></p>
     </div>
     <div class="flex-full-width-item">
         <div>

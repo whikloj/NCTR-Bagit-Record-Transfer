@@ -1,26 +1,9 @@
-const msalParams = {
-    auth: {
-        authority: "https://login.microsoftonline.com/{tenant id / common / consumers}",
-        clientId: "{client id}",
-        redirectUri: "http://localhost:3000"
-    },
-}
-
-const app = new msal.PublicClientApplication(msalParams);
-
-async function getToken(command) {
+async function getToken() {
 
     let accessToken = "";
-    let authParams = null;
-
-    switch (command.type) {
-        case "SharePoint":
-        case "SharePoint_SelfIssued":
-            authParams = { scopes: [`${combine(command.resource, ".default")}`] };
-            break;
-        default:
-            break;
-    }
+    // Scopes for access to any files in OneDrive created or shared with the user
+    // and in any Team the user is part of.
+    authParams = { scopes: ["Files.Read.All", "Sites.Read.All"] };
 
     try {
 

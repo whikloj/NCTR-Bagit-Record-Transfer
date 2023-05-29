@@ -21,6 +21,7 @@ urlpatterns = [
 
     path('about/', views.About.as_view(), name='about'),
     path('profile/', login_required(views.UserProfile.as_view()), name='userprofile'),
+    path('logout/', views.AzurePythonLogoutDecider.as_view(), name='logout')
 ]
 
 if settings.SIGN_UP_ENABLED:

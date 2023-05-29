@@ -77,10 +77,10 @@ if USE_AZURE_AD_LOGIN:
     AZURE_AUTH = {
         "CLIENT_ID": config("MS_CLIENT_ID", ""),  # Mandatory
         "CLIENT_SECRET": config("MS_CLIENT_SECRET", ""),  # Mandatory
-        "REDIRECT_URI": config("MS_REDIRECT_URL", ""), # Mandatory, and must match Azure app registration.
+        "REDIRECT_URI": config("MS_REDIRECT_URL", ""),  # Mandatory, and must match Azure app registration.
         "SCOPES": ["User.Read"],
         "AUTHORITY": config("MS_AUTHORITY", "https://login.microsoftonline.com/common"),   # Or https://login.microsoftonline.com/common if multi-tenant
-        #"LOGOUT_URI": "https://<domain>/logout",    # Optional
+        "LOGOUT_URI": "http://localhost:8000/accounts/logout",    # Optional
         "PUBLIC_URLS": ["recordtransfer:index",]  # Optional, public views accessible by non-authenticated users
         # "PUBLIC_PATHS": ['/go/',],  # Optional, public paths accessible by non-authenticated users
     }
