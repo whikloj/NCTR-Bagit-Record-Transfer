@@ -3,11 +3,13 @@ import re
 from decouple import config
 from .base import *
 
-# See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
+# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 DEBUG = False
 SITE_ID = config('SITE_ID', default=2, cast=int)
 
 ALLOWED_HOSTS = re.split(r'\s+', config('HOST_DOMAINS'))
+# Needed if deploying behind a proxy or inside a docker container.
+CSRF_TRUSTED_ORIGINS = re.split(r'\s+', config('TRUSTED_HOSTS'))
 
 DATABASES = {
     'default': {
