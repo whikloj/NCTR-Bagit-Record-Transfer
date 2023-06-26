@@ -1,0 +1,79 @@
+version: "3.2"
+
+services:
+  app:
+    build: .
+    container_name: recordtransfer_django_app
+    entrypoint:
+      - /bin/bash
+      - /app/docker/django/django-gunicorn-entrypoint.sh
+    volumes:
+      - .:/app
+      - temp-directory:/tmp
+      - ./docker/logs/django:/var/log/django/
+      - ./docker/logs/django-rq:/var/log/django-rq/
+      - ./run:/run
+    ports:
+      - "8000:8000"
+    expose:
+      - "8000"
+    #network_mode: host
+    #networks:
+    #  - nw_backend
+    #  - nw_frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./uofm-libraries.env
+    environment:
+      DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker-uofm-libraries
+    depends_on:
+      - rq
+    #restart: unless-stopped
+
+  rq:
+    build: .
+    container_name: recordtransfer_rq_workers
+    entrypoint:
+      - /bin/bash
+      - /app/docker/django-rq/django-rq-entrypoint.sh
+    volumes:
+      - ./:/app
+      - temp-directory:/tmp
+      - ./docker/logs/django-rq:/var/log/django-rq/
+      - ./docker/logs/django:/var/log/django/
+    env_file:
+      - ./uofm-libraries.env
+    environment:
+      DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker-uofm-libraries
+    depends_on:
+      - redis
+    #networks:
+    #  - nw_backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+     
+  redis:
+    image: redis:5.0.7-alpine
+    container_name: redis_server
+    command: sh -c "touch /var/log/redis/redis-server.log && redis-server /usr/local/etc/redis/redis.conf"
+    #command: /usr/local/etc/redis/redis.conf
+    #ports:
+    #  - 6379:6379
+    volumes:
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./docker/logs/redis:/var/log/redis
+    environment:
+      REDIS_REPLICATION_MODE: master
+    #networks:
+    #  - nw_backend
+    restart: unless-stopped
+
+
+volumes:
+  temp-directory:
+#networks:
+#  nw_frontend:
+#    driver: bridge
