@@ -3,6 +3,7 @@ import uuid
 from typing import Union
 
 import clamd
+from azure_auth.handlers import AuthHandler
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.mixins import PermissionRequiredMixin
@@ -12,7 +13,7 @@ from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from django.utils.translation import gettext
 from django.views.decorators.http import require_http_methods
-from django.views.generic import TemplateView, FormView, UpdateView
+from django.views.generic import TemplateView, FormView, UpdateView, RedirectView
 from formtools.wizard.views import SessionWizardView
 
 from bagitobjecttransfer.settings.base import SITE_NAME_SHORT
@@ -570,3 +571,13 @@ def _accept_contents(file_upload):
                 }
             }
     return {'accepted': True}
+
+class AzurePythonLogoutDecider(RedirectView):
+    """ Local accounts get stuck when passed to Azure for logout, this avoids sending them there. """
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        if AuthHandler(self.request).get_token_from_cache() is None:
+            return reverse('logout')
+        return reverse('azure_auth:logout')
+
