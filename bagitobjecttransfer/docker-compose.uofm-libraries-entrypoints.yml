@@ -17,10 +17,6 @@ services:
       - "8000:8000"
     expose:
       - "8000"
-    #network_mode: host
-    #networks:
-    #  - nw_backend
-    #  - nw_frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
@@ -29,7 +25,7 @@ services:
       DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker-uofm-libraries
     depends_on:
       - rq
-    #restart: unless-stopped
+    restart: unless-stopped
 
   rq:
     build: .
@@ -48,32 +44,22 @@ services:
       DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker-uofm-libraries
     depends_on:
       - redis
-    #networks:
-    #  - nw_backend
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
      
   redis:
-    image: redis:5.0.7-alpine
+    image: docker.io/library/redis:5.0.7-alpine
     container_name: redis_server
     command: sh -c "touch /var/log/redis/redis-server.log && redis-server /usr/local/etc/redis/redis.conf"
-    #command: /usr/local/etc/redis/redis.conf
-    #ports:
-    #  - 6379:6379
     volumes:
       - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
       - ./docker/logs/redis:/var/log/redis
     environment:
       REDIS_REPLICATION_MODE: master
-    #networks:
-    #  - nw_backend
     restart: unless-stopped
 
 
 volumes:
   temp-directory:
-#networks:
-#  nw_frontend:
-#    driver: bridge

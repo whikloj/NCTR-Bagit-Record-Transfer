@@ -144,7 +144,7 @@ def create_downloadable_bag(submission: Submission, user_triggered: User):
         zipped_bag.close()
         LOGGER.info(msg='Zipped directory successfully')
 
-        file_name = f'{user_triggered.username}-{submission.bag_name}.zip'
+        file_name = f'{submission.bag_name}.zip'
         LOGGER.info(msg='Saving zip file as {0} ...'.format(file_name))
         new_job.attached_file.save(file_name, ContentFile(zipf.getvalue()), save=True)
         LOGGER.info(msg='Saved file successfully')
