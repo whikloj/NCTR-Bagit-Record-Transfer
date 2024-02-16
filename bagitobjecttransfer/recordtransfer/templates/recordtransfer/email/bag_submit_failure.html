@@ -2,15 +2,16 @@
 {% load i18n %}
 
 {% block title %}
-{% blocktrans %}
-Transfer Submitted by {{ user.username }} Failed
+{% blocktrans user.username as username %}
+Transfer Submitted by {{ username }} Failed
 {% endblocktrans %}
 {% endblock %}
 
 {% block message %}
 <p>
-    {{ user.first_name }} {{ user.last_name }} ({{ user.username }}) attempted to
-    submit a new transfer at {{ form_data.action_date }} using the NCTR Record Transfer
+    {% blocktrans user.get_full_name as full_name and user.username as username and action_date|date "F d, Y H:i A" as action_date %}
+    {{ full_name }} ({{ username }}) attempted to
+    submit a new transfer at {{ action_date }} using the NCTR Record Transfer
     Portal, but an error occurred.
 </p>
 {% endblock %}

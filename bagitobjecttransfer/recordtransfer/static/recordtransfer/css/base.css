@@ -17,6 +17,20 @@ body {
     justify-content: space-between;
 }
 
+.flex-item.reversed {
+    flex-direction: row-reverse;
+    flex-wrap: nowrap;
+}
+
+.flex-item.reversed label {
+    flex: 1 0 auto;
+    text-align: left;
+}
+.flex-item.reversed input {
+    flex: 0 1 180px !important;
+    text-align: right;
+}
+
 .focused-content {
     padding: 0;
 }
@@ -174,6 +188,7 @@ body {
  */
 
 .alert {
+    position: unset;
     display: flex;
     width: 100%;
     padding: 7px;

@@ -2,16 +2,16 @@
 {% load i18n %}
 
 {% block title %}
-{% blocktrans %}
-New Transfer Submitted by {{ user.username }}
+{% blocktrans user.username as username %}
+New Transfer Submitted by {{ username }}
 {% endblocktrans %}
 {% endblock %}
 
 {% block message %}
 <div>
-    {% blocktrans %}
-    {{ user.first_name }} {{ user.last_name }} ({{ user.username }}) submitted a new
-    transfer at {{ form_data.action_date }} with the NCTR Record Transfer Portal. To
+    {% blocktrans user.get_full_name as full_name and user.username as username and action_date|date "M d, Y H:i A" as action_date %}
+    {{ full_name }} ({{ username }}) submitted a new
+    transfer at {{ action_date }} with the NCTR Record Transfer Portal. To
     view their new submission, <a href="{{ submission_url }}">click here</a> or copy and paste
     the link below into your favourite browser:
     {% endblocktrans %}

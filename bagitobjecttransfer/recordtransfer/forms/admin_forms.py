@@ -161,6 +161,14 @@ class UserProfileForm(forms.ModelForm):
         model = User
         fields = (
             'gets_notification_emails',
+            'gets_bag_email_updates',
         )
+        widgets = {
+            'gets_notification_emails': forms.CheckboxInput(),
+            'gets_bag_email_updates': forms.CheckboxInput(),
+        }
+        labels = {
+            'gets_notification_emails': 'Gets notification emails',
+            'gets_bag_email_updates': 'Gets bag email updates for new bags and bag updates (staff only)',
+        }
 
-    gets_notification_emails = forms.CheckboxInput()

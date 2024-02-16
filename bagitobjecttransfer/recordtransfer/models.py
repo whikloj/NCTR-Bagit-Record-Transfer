@@ -26,8 +26,10 @@ LOGGER = logging.getLogger(__name__)
 class User(AbstractUser):
     ''' The main User object used to authenticate users
     '''
+    # These are emails for transfers other users submit, only for staff users.
     gets_bag_email_updates = models.BooleanField(default=False)
     confirmed_email = models.BooleanField(default=False)
+    # These are emails for transfers this user submits
     gets_notification_emails = models.BooleanField(default=True)
 
     def get_full_name(self):
@@ -218,7 +220,8 @@ class BagGroup(models.Model):
 
     @property
     def number_of_bags_in_group(self):
-        return len(self.bag_set.all())
+        ''' Reverse lookup using ForeignKey to get the number of bags in this group from the Submission '''
+        return len(self.submission_set.all())
 
     def __str__(self):
         return f'{self.name} ({self.created_by})'

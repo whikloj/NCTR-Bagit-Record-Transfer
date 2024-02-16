@@ -198,6 +198,7 @@ def send_bag_creation_success(form_data: dict, submission: Submission):
                 'user': user_submitted,
                 'form_data': form_data,
                 'submission_url': submission_url,
+                'action_date': submission.submission_date,
             }
         )
 
@@ -226,6 +227,7 @@ def send_bag_creation_failure(form_data: dict, user_submitted: User):
             context={
                 'user': user_submitted,
                 'form_data': form_data,
+                'action_date': timezone.now(),
             }
         )
 
@@ -252,6 +254,7 @@ def send_thank_you_for_your_transfer(form_data: dict, submission: Submission):
                 'user': user_submitted,
                 'form_data': form_data,
                 'archivist_email': ARCHIVIST_EMAIL,
+                'action_date': submission.submission_date,
             }
         )
 
@@ -277,6 +280,7 @@ def send_your_transfer_did_not_go_through(form_data: dict, user_submitted: User)
                 'user': user_submitted,
                 'form_data': form_data,
                 'archivist_email': ARCHIVIST_EMAIL,
+                'action_date': timezone.now(),
             }
         )
 
@@ -299,7 +303,7 @@ def send_user_activation_email(new_user: User):
         from_email=from_email,
         subject='Activate Your Account',
         template_name='recordtransfer/email/activate_account.html',
-        context = {
+        context={
             'user': new_user,
             'base_url': domain,
             'uid': urlsafe_base64_encode(force_bytes(new_user.pk)),

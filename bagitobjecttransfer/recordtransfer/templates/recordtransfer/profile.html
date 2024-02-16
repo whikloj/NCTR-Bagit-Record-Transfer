@@ -21,10 +21,16 @@
         <label>{% trans "Username" %}</label>
         <input disabled value="{{ user.username }}">
     </div>
-    <div class="flex-item">
-        <label for="{{ form.gets_notification_emails.id_for_label }}">{% trans "Receive notification emails?" %}</label>
+    <div class="flex-item reversed">
+        <label for="{{ form.gets_notification_emails.id_for_label }}">{% trans form.gets_notification_emails.label %}</label>
         {{ form.gets_notification_emails }}
     </div>
+    {% if user.is_staff or user.is_super_user %}
+    <div class="flex-item reversed">
+        <label for="{{ form.gets_bag_email_updates.id_for_label }}">{% trans form.gets_bag_email_updates.label %}</label>
+        {{ form.gets_bag_email_updates }}
+    </div>
+    {% endif %}
     <div class="flex-item">
         <button type="submit" class="blue-button">
             {% trans "Save" %}

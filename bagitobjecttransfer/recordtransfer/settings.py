@@ -44,6 +44,9 @@ CLAMAV_PORT = config('CLAMAV_PORT', default=3310, cast=int)
 FP_TENANT_ID = config('MS_FILE_PICKER_TENANT_ID', '')
 FP_CLIENT_ID = config('MS_FILE_PICKER_CLIENT_ID', '')
 
+SITE_NAME_SHORT = config('SITE_NAME_SHORT', 'NCTR Record Transfer')
+SITE_NAME = config('SITE_NAME', 'National Centre for Truth and Reconciliation Record Transfer')
+
 # File types allowed to be uploaded to the backend. Do not use periods before the extension, and
 # ensure that all file extensions are lowercase.
 
