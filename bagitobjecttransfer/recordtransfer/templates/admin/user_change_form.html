@@ -1,0 +1,10 @@
+{% extends 'admin/change_form.html' %}
+{% load i18n %}
+
+{% block after_related_objects %}
+    {{ block.super }}
+    {% if resend_confirmation %}
+        <div class="submit-row">
+        <a href="{{ resend_confirmation }}">Re-send user email confirmation</a></div>
+    {% endif %}
+{% endblock %}
