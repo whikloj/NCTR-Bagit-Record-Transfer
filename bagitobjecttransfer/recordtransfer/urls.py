@@ -31,8 +31,8 @@ if settings.SIGN_UP_ENABLED:
         path('createaccount/complete/', views.ActivationComplete.as_view(), name='accountcreated'),
         path('createaccount/invalid/', views.ActivationInvalid.as_view(), name='activationinvalid'),
         re_path(('createaccount/'
-                'activate/'
-                r'(?P<uidb64>[0-9A-Za-z_\-]+)/'
-                r'(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$'),
-            views.activate_account, name='activateaccount')
+                 'activate/'
+                 r'(?P<uidb64>[0-9A-Za-z_\-]+)/'
+                 r'(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$'),
+                views.activate_account, name='activateaccount')
     ])

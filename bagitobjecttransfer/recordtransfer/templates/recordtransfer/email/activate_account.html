@@ -2,15 +2,14 @@
 {% load i18n %}
 
 {% block title %}
-{% blocktrans user.username as username %}
 {# blocktrans does not allow dot notation, so we define user.username as username #}
+{% blocktrans with username=user.username %}
 Activate Your New Account, {{ username }}
 {% endblocktrans %}
 {% endblock %}
 
-{% url 'recordtransfer:activateaccount' uidb64=uid token=token as activateaccount %}
-
 {% block message %}
+{% url 'recordtransfer:activateaccount' uid token as activateaccount %}
 <div>
     {% blocktrans %}
     Someone created a new account for the NCTR Record Transfer Portal using this email.

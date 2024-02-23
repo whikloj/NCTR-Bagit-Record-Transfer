@@ -5,7 +5,6 @@ from typing import Union
 import clamd
 from azure_auth.handlers import AuthHandler
 from django.contrib import messages
-from django.contrib.auth import login
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse, reverse_lazy
@@ -124,8 +123,10 @@ def activate_account(request, uidb64, token):
         user.is_active = True
         user.confirmed_email = True
         user.save()
-        login(request, user)
-        return HttpResponseRedirect(reverse('recordtransfer:accountcreated'))
+        # login(request, user)
+        # Can't login automatically as we have multiple authentication backends
+        messages.info(request, gettext('Your account has been activated!'))
+        return HttpResponseRedirect(reverse('recordtransfer:index'))
 
     return HttpResponseRedirect(reverse('recordtransfer:activationinvalid'))
 
@@ -571,6 +572,7 @@ def _accept_contents(file_upload):
                 }
             }
     return {'accepted': True}
+
 
 class AzurePythonLogoutDecider(RedirectView):
     """ Local accounts get stuck when passed to Azure for logout, this avoids sending them there. """

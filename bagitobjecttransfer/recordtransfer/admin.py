@@ -17,7 +17,7 @@ from django.utils.translation import gettext
 from recordtransfer.forms import InlineBagGroupForm, SubmissionForm, \
     InlineSubmissionForm, AppraisalForm, InlineAppraisalFormSet, UploadSessionForm, \
     UploadedFileForm, InlineUploadedFileForm
-from recordtransfer.jobs import create_downloadable_bag, send_user_account_updated
+from recordtransfer.jobs import create_downloadable_bag, send_user_account_updated, send_user_activation_email
 from recordtransfer.models import User, UploadSession, UploadedFile, BagGroup, Appraisal, \
     Submission, Job
 from recordtransfer.settings import ALLOW_BAG_CHANGES
@@ -183,66 +183,6 @@ class UploadSessionAdmin(ReadOnlyAdmin):
     ]
 
 
-@admin.register(BagGroup)
-class BagGroupAdmin(ReadOnlyAdmin):
-    ''' Admin for the BagGroup model. Bags can be viewed in-line.
-
-    Permissions:
-        - add: Not allowed
-        - change: Not allowed
-        - delete: Only by superusers
-    '''
-
-    list_display = [
-        'name',
-        linkify('created_by'),
-        'number_of_bags_in_group',
-    ]
-
-    search_fields = [
-        'name',
-        'uuid',
-    ]
-
-    ordering = [
-        '-created_by',
-    ]
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return obj and request.user.is_superuser
-
-
-class BagGroupInline(admin.TabularInline):
-    ''' Inline admin for the Appraisal model. Used to edit Appraisals associated
-    with a Submission. Deletions are not allowed.
-
-    Permissions:
-        - add: Not allowed
-        - change: Not allowed - go to BagGroup page for change ability
-        - delete: Not allowed - go to BagGroup page for delete ability
-    '''
-    model = BagGroup
-    max_num = 0
-    show_change_link = True
-
-    form = InlineBagGroupForm
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
-
 @admin.register(Appraisal)
 class AppraisalAdmin(admin.ModelAdmin):
     ''' Admin for the Appraisal model
@@ -380,6 +320,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         'id',
         'review_status',
         linkify('user'),
+        linkify('part_of_group')
     ]
 
     ordering = [
@@ -571,6 +512,70 @@ class SubmissionInline(admin.TabularInline):
         return obj and request.user.is_superuser
 
 
+@admin.register(BagGroup)
+class BagGroupAdmin(ReadOnlyAdmin):
+    ''' Admin for the BagGroup model. Bags can be viewed in-line.
+
+    Permissions:
+        - add: Not allowed
+        - change: Not allowed
+        - delete: Only by superusers
+    '''
+
+    list_display = [
+        'name',
+        linkify('created_by'),
+        'number_of_bags_in_group',
+    ]
+
+    search_fields = [
+        'name',
+        'uuid',
+    ]
+
+    ordering = [
+        '-created_by',
+    ]
+
+    inlines = [
+        SubmissionInline,
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return obj and (request.user.is_superuser or request.user.has_perm('recordtransfer.change_baggroup'))
+
+
+class BagGroupInline(admin.TabularInline):
+    ''' Inline admin for the Appraisal model. Used to edit Appraisals associated
+    with a Submission. Deletions are not allowed.
+
+    Permissions:
+        - add: Not allowed
+        - change: Not allowed - go to BagGroup page for change ability
+        - delete: Not allowed - go to BagGroup page for delete ability
+    '''
+    model = BagGroup
+    max_num = 0
+    show_change_link = True
+
+    form = InlineBagGroupForm
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(Job)
 class JobAdmin(ReadOnlyAdmin):
     ''' Admin for the Job model. Adds a view to download the file associated
@@ -662,6 +667,9 @@ class CustomUserAdmin(UserAdmin):
         - change: Allowed if editing own account, or if editor is a superuser
         - delete: Allowed by superusers
     '''
+
+    change_form_template = 'admin/user_change_form.html'
+
     fieldsets = (
         *UserAdmin.fieldsets, # original form fieldsets, expanded
         (                     # New fieldset added on to the bottom
@@ -752,3 +760,66 @@ class CustomUserAdmin(UserAdmin):
                     gettext("Staff privileges have been removed from your account.")
                 )
         return message_list
+
+    def get_urls(self):
+        """
+        Add new function urls to admin
+        """
+        return [
+            path('<path:user_id>/resend_confirmation/',
+                 self.admin_site.admin_view(self.resend_confirmation_email),
+                 name='auth_user_resend_confirmation'),
+        ] + super().get_urls()
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        user = User.objects.get(pk=object_id)
+        if (request.user.is_superuser or request.user.is_staff) and not user.confirmed_email:
+            if extra_context is None:
+                extra_context = {}
+            if user is not None:
+                extra_context['resend_confirmation'] = user.get_resend_confirmation_uri()
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+    def resend_confirmation_email(self, request, user_id):
+        """ Resend the user confirmation email. """
+        if request.user.is_superuser or request.user.is_staff:
+            try:
+                user = User.objects.get(pk=user_id)
+                if not user.confirmed_email:
+                    LOGGER.info(msg=f"Resending email confirmation to {user.email}")
+                    messages.info(request, gettext("Email confirmation sent to user."))
+                    send_user_activation_email(user)
+                    return HttpResponseRedirect(
+                        reverse(
+                            "%s:%s_%s_change"
+                            % (
+                                self.admin_site.name,
+                                user._meta.app_label,
+                                user._meta.model_name,
+                            ),
+                            args=(user.pk,),
+                        )
+                    )
+                else:
+                    messages.warning(request, gettext("User has already confirmed their email."))
+                    LOGGER.debug(msg=f"Requested resend link for user ID {user_id} who has already confirmed their " +
+                                     "email or could not be found.")
+            except User.DoesNotExist:
+                messages.error(request, gettext("User does not exist."))
+                LOGGER.warning(msg=f"User attempted to resend email confirmation to user id {user_id} which does not " +
+                                   "exist.")
+        else:
+            messages.warning(request, gettext("You do not have permission to resend email confirmations."))
+            LOGGER.warning(msg=f"User {request.user} attempted to resend email confirmation to user id {user_id}")
+
+        return HttpResponseRedirect(
+            reverse(
+                "%s:%s_%s_change"
+                % (
+                    self.admin_site.name,
+                    user._meta.app_label,
+                    user._meta.model_name,
+                ),
+                args=(user.pk,),
+            )
+        )

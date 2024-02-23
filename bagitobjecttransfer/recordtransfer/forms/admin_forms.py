@@ -121,10 +121,11 @@ class SubmissionForm(RecordTransferModelForm):
             'title',
             'extent_statement',
             'user',
-            'review_status'
+            'review_status',
+            'part_of_group',
         )
 
-    disabled_fields = ['submission_date', 'title', 'user', 'extent_statement']
+    disabled_fields = ['submission_date', 'title', 'user', 'extent_statement', 'part_of_group']
 
 
 class InlineSubmissionForm(RecordTransferModelForm):

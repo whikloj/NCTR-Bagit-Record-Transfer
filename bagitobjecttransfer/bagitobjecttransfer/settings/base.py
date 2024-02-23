@@ -84,7 +84,7 @@ if USE_AZURE_AD_LOGIN:
         "PUBLIC_URLS": ["recordtransfer:index",]  # Optional, public views accessible by non-authenticated users
         # "PUBLIC_PATHS": ['/go/',],  # Optional, public paths accessible by non-authenticated users
     }
-    LOGIN_URL = "azure-signin/login"
+    LOGIN_URL = "azure_auth/login"
 
 # Database primary key fields
 

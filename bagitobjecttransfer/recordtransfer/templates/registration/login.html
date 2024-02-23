@@ -6,13 +6,13 @@
 {% block content %}
     <div class="account-form-container">
         <ul class="account-method-list">
-            <li class="account-method-item active"><label for="account-method-azure">{% trans "Microsoft SSO" %}</label></li>
-            <li class="account-method-item"><label for="account-method-local">{% trans "Local account" %}</label></li>
+            <li class="account-method-item{% if not form.non_field_errors %} active{% endif %}"><label for="account-method-azure">{% trans "Microsoft SSO" %}</label></li>
+            <li class="account-method-item{% if form.non_field_errors %} active{% endif %}"><label for="account-method-local">{% trans "Local account" %}</label></li>
         </ul>
-        <div class="account-method active" id="account-method-azure">
+        <div class="account-method{% if not form.non_field_errors %} active{% endif %}" id="account-method-azure">
             <p><a href="{% url 'azure_auth:login' %}">{% trans "Click here to go to Microsoft log in form." %}</a></p>
         </div>
-        <div class="account-method" id="account-method-local">
+        <div class="account-method{% if form.non_field_errors %} active{% endif %}" id="account-method-local">
             <div class="account-page-title title-text">
                 {% trans "Login to your Account" %}
             </div>

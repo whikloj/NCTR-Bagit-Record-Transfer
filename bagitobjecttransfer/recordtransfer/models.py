@@ -8,7 +8,7 @@ import uuid
 from typing import Union
 
 import bagit
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -31,9 +31,18 @@ class User(AbstractUser):
     confirmed_email = models.BooleanField(default=False)
     # These are emails for transfers this user submits
     gets_notification_emails = models.BooleanField(default=True)
+    # Needed or you get errors accessing the _meta.app_label early in the app's lifecycle
+    objects = UserManager()
 
     def get_full_name(self):
         return self.first_name + ' ' + self.last_name
+
+    def get_resend_confirmation_uri(self):
+        """
+            Get the URL to resend this user's confirmation email in admin
+        """
+        view_name = 'admin:auth_user_resend_confirmation'
+        return reverse(view_name, args=(self.pk,))
 
 
 class UploadSession(models.Model):
@@ -243,7 +252,7 @@ class Submission(models.Model):
     title = models.CharField(max_length=255, null=True)
     review_status = models.CharField(max_length=2, choices=ReviewStatus.choices,
                                      default=ReviewStatus.NOT_REVIEWED)
-    part_of_group = models.ForeignKey(BagGroup, on_delete=models.SET_NULL, blank=True, null=True)
+    part_of_group = models.ForeignKey(BagGroup, on_delete=models.CASCADE, blank=True, null=True)
     upload_session = models.ForeignKey(UploadSession, null=True, on_delete=models.CASCADE)
     uuid = models.UUIDField(default=uuid.uuid4)
     bag_name = models.CharField(max_length=256, null=True)
