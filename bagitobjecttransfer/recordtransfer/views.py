@@ -22,14 +22,33 @@ from recordtransfer.jobs import bag_user_files, send_user_activation_email
 from recordtransfer.models import UploadedFile, UploadSession, User, BagGroup, Submission
 from recordtransfer.settings import CLAMAV_HOST, CLAMAV_PORT, CLAMAV_ENABLED
 from recordtransfer.tokens import account_activation_token
-from recordtransfer.utils import get_human_readable_file_count, get_human_readable_size
+from recordtransfer.utils import get_human_readable_file_count, get_human_readable_size, mib_to_bytes, bytes_to_mib
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _add_storage_messages(request):
+    """ Add messages to the request if the user is approaching their storage limit. """
+    if request.user.is_authenticated:
+        user_storage_size = int(request.user.get_uploaded_size)
+        if user_storage_size > mib_to_bytes(settings.MAX_TOTAL_STORAGE_WARNING_SIZE):
+            message = "You have uploaded {2:.2f}% ({0}) of your storage limit of {1:.2f} MiB".format(
+                          get_human_readable_size(user_storage_size, base=1024, precision=2),
+                          settings.MAX_TOTAL_STORAGE_SIZE,
+                (user_storage_size / mib_to_bytes(settings.MAX_TOTAL_STORAGE_SIZE) * 100))
+            if user_storage_size > mib_to_bytes(settings.MAX_TOTAL_STORAGE_CRITICAL_SIZE):
+                messages.warning(request, message)
+            else:
+                messages.info(request, message)
 
 
 class Index(TemplateView):
     ''' The homepage '''
     template_name = 'recordtransfer/home.html'
+
+    def get(self, request, *args, **kwargs):
+        _add_storage_messages(request)
+        return super().get(request, *args, **kwargs)
 
 
 class TransferSent(TemplateView):
@@ -60,6 +79,12 @@ class UserProfile(UpdateView):
         context = super(UserProfile, self).get_context_data(**kwargs)
         context['user_submissions'] = Submission.objects.filter(user=self.request.user).order_by('-submission_date')
         context['site_name_short'] = SITE_NAME_SHORT
+        context['current_storage_size'] = get_human_readable_size(self.request.user.get_uploaded_size, base=1024,
+                                                                  precision=2)
+        percentage_used = (self.request.user.get_uploaded_size / mib_to_bytes(settings.MAX_TOTAL_STORAGE_SIZE)) * 100
+        context['current_storage_percent'] = percentage_used
+        if percentage_used > settings.MAX_TOTAL_STORAGE_WARNING_PERCENT:
+            context['storage_level'] = 'critical' if percentage_used > settings.MAX_TOTAL_STORAGE_CRITICAL_PERCENT else 'warning'
         return context
 
     def form_valid(self, form):
@@ -187,6 +212,7 @@ class TransferFormWizard(PermissionRequiredMixin, SessionWizardView):
         context = super().get_context_data(form, **kwargs)
         step_name = self.steps.current
         context.update({'form_title': self._TEMPLATES[step_name]['formtitle']})
+        _add_storage_messages(self.request)
         if 'infomessage' in self._TEMPLATES[step_name]:
             context.update({'info_message': self._TEMPLATES[step_name]['infomessage']})
         if step_name == 'grouptransfer':
@@ -279,7 +305,7 @@ def uploadfiles(request):
                 issues.append({'file': _file.name, **file_check})
                 continue
 
-            session_check = _accept_session(_file.name, _file.size, session)
+            session_check = _accept_session(_file.name, _file.size, session, request.user)
             if not session_check['accepted']:
                 _file.close()
                 issues.append({'file': _file.name, **session_check})
@@ -359,9 +385,13 @@ def accept_file(request):
         if token:
             session = UploadSession.objects.filter(token=token).first()
             if session:
-                session_check = _accept_session(filename, filesize, session)
+                session_check = _accept_session(filename, filesize, session, request.user)
                 if not session_check['accepted']:
                     return JsonResponse(session_check, status=200)
+        else:
+            user_storage_check = _accept_upload_total(filename, filesize, request.user)
+            if not user_storage_check['accepted']:
+                return JsonResponse(user_storage_check, status=200)
 
         # The contents of the file are not known here, so it is not necessary to
         # call _accept_content()
@@ -398,8 +428,6 @@ def _accept_file(filename: str, filesize: Union[str, int]) -> dict:
             the session is valid, or False if not. The dictionary also contains
             an 'error' and 'verboseError' key if 'accepted' is False.
     '''
-    mib_to_bytes = lambda m: m * (1024 ** 2)
-    bytes_to_mib = lambda b: b / (1024 ** 2)
 
     # Check extension exists
     name_split = filename.split('.')
@@ -474,29 +502,33 @@ def _accept_file(filename: str, filesize: Union[str, int]) -> dict:
     return {'accepted': True}
 
 
-def _accept_session(filename: str, filesize: Union[str, int], session: UploadSession) -> dict:
+def _accept_session(filename: str, filesize: Union[str, int], session: UploadSession, user: User) -> dict:
     ''' Determine if a new file should be accepted as part of the session.
 
     These checks are applied:
     - The session has room for more files according to the MAX_TOTAL_UPLOAD_COUNT
     - The session has room for more files according to the MAX_TOTAL_UPLOAD_SIZE
     - A file with the same name has not already been uploaded
+    - The user has room for more files according to the MAX_TOTAL_UPLOAD_STORAGE
 
     Args:
         filename (str): The name of the file
         filesize (Union[str, int]): A string or integer representing the size of
             the file (in bytes)
         session (UploadSession): The session files are being uploaded to
+        user (user): The request user
 
     Returns:
         (dict): A dictionary containing an 'accepted' key that contains True if
             the session is valid, or False if not. The dictionary also contains
             an 'error' and 'verboseError' key if 'accepted' is False.
     '''
+    user_storage_check = _accept_upload_total(filename, filesize, user, session)
+    if not user_storage_check['accepted']:
+        return user_storage_check
+
     if not session:
         return {'accepted': True}
-
-    mib_to_bytes = lambda m: m * (1024 ** 2)
 
     # Check number of files is within allowed total
     if session.number_of_files_uploaded() >= settings.MAX_TOTAL_UPLOAD_COUNT:
@@ -539,6 +571,37 @@ def _accept_session(filename: str, filesize: Union[str, int], session: UploadSes
 
     # All checks succeded
     return {'accepted': True}
+
+
+def _accept_upload_total(file_name: str, file_size: int, user: User, session: UploadSession = None) -> dict:
+    """
+        Determine if the file should be rejected based its file size, the current session and current total storage size.
+        Args:
+            file_name (str): The name of the file
+            file_size (int): The size of the file in bytes
+            user (User): The user uploading the file
+            session (UploadSession): The current session, if applicable
+        Returns:
+            (dict): A dict containing an 'accepted' key that is True if the file should be accepted, or False if not.
+             The dictionary also contains an 'error' and 'verboseError' key if 'accepted' is False.
+    """
+    max_remaining_total_bytes = mib_to_bytes(settings.MAX_TOTAL_STORAGE_SIZE) - user.get_uploaded_size
+    LOGGER.info("max_remaining_total_bytes: %s", max_remaining_total_bytes)
+    if session:
+        # Remove current session storage if applicable
+        max_remaining_total_bytes -= session.upload_size
+    if int(file_size) < max_remaining_total_bytes:
+        return {'accepted': True}
+    return {
+        'accepted': False,
+        'error': gettext(
+            'Maximum total storage size ({0:.2f} MiB) exceeded'
+        ).format(settings.MAX_TOTAL_STORAGE_SIZE),
+        'verboseError': gettext(
+            'The file "{0}" would push the total user storage size past the '
+            '{1:.2f} MiB max'
+        ).format(file_name, settings.MAX_TOTAL_STORAGE_SIZE)
+    }
 
 
 def _accept_contents(file_upload):

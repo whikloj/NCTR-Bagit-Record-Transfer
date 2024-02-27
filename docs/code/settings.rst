@@ -14,6 +14,9 @@ the :code:`.env` environment file. By category, these settings are:
 - :ref:`MAX_TOTAL_UPLOAD_SIZE`
 - :ref:`MAX_SINGLE_UPLOAD_SIZE`
 - :ref:`MAX_TOTAL_UPLOAD_COUNT`
+- :ref:`MAX_TOTAL_STORAGE_SIZE`
+- :ref:`MAX_TOTAL_STORAGE_WARNING_PERCENT`
+- :ref:`MAX_TOTAL_STORAGE_CRITICAL_PERCENT`
 
 **Storage Locations**
 
@@ -168,6 +171,73 @@ MAX_TOTAL_UPLOAD_SIZE
         #file: .env
         MAX_TOTAL_UPLOAD_SIZE=1024
 
+MAX_TOTAL_STORAGE_SIZE
+----------------------
+
+    *Choose the maximum total size (in MiB) of all files in storage for a user
+    
+    .. table::
+    
+        ========  ============  =========  ==================  =========================
+        Required  Default       Type       Can be set in .env  Can be set in settings.py
+        ========  ============  =========  ==================  =========================
+        NO        1024          int        YES                 YES
+        ========  ============  =========  ==================  =========================
+
+    Sets the maximum allowed total size of _all_ files held on the site for a user. The size is
+    expressed in **MiB**, *not* MB.
+    
+    **.env Example:**
+
+    ::
+
+        #file: .env
+        MAX_TOTAL_STORAGE_SIZE=2048
+
+
+MAX_TOTAL_STORAGE_WARNING_PERCENT
+---------------------------------
+
+    *Choose the percentage of :ref:`MAX_TOTAL_STORAGE_SIZE` to display info warnings to a user
+    
+    .. table::
+    
+        ========  ============  =========  ==================  =========================
+        Required  Default       Type       Can be set in .env  Can be set in settings.py
+        ========  ============  =========  ==================  =========================
+        NO        80            int        YES                 YES
+        ========  ============  =========  ==================  =========================
+
+    Sets the percentage of allowed total size of _all_ files held on the site to display warnings.
+    
+    **.env Example:**
+
+    ::
+
+        #file: .env
+        MAX_TOTAL_STORAGE_WARNING_PERCENT=82
+
+MAX_TOTAL_STORAGE_CRITICAL_PERCENT
+---------------------------------
+
+    *Choose the percentage of :ref:`MAX_TOTAL_STORAGE_SIZE` to display critical warnings to a user
+    
+    .. table::
+    
+        ========  ============  =========  ==================  =========================
+        Required  Default       Type       Can be set in .env  Can be set in settings.py
+        ========  ============  =========  ==================  =========================
+        NO        90            int        YES                 YES
+        ========  ============  =========  ==================  =========================
+
+    Sets the percentage of allowed total size of _all_ files held on the site to display critical warnings.
+    
+    **.env Example:**
+
+    ::
+
+        #file: .env
+        MAX_TOTAL_STORAGE_CRITICAL_PERCENT=95
 
 BAG_STORAGE_FOLDER
 ------------------

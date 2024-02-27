@@ -169,3 +169,13 @@ def count_file_types(file_names: list, accepted_file_groups: dict, logger=None):
         del_keys.clear()
 
     return counted_extensions_per_group
+
+
+def mib_to_bytes(m):
+    """ Convert MiB to bytes """
+    return m * (1024 ** 2)
+
+
+def bytes_to_mib(b):
+    """ Convert bytes to MiB """
+    return b / (1024 ** 2)

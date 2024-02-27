@@ -28,11 +28,17 @@ BAG_CHECKSUMS = [
     algorithm.strip() for algorithm in config('BAG_CHECKSUMS', default='sha512').split(',')
 ]
 
-# Maximum upload thresholds
+# Maximum upload thresholds (in MB)
 
 MAX_TOTAL_UPLOAD_SIZE = config('MAX_TOTAL_UPLOAD_SIZE', default=256, cast=int)
 MAX_SINGLE_UPLOAD_SIZE = config('MAX_SINGLE_UPLOAD_SIZE', default=64, cast=int)
 MAX_TOTAL_UPLOAD_COUNT = config('MAX_TOTAL_UPLOAD_COUNT', default=40, cast=int)
+MAX_TOTAL_STORAGE_SIZE = config('MAX_TOTAL_STORAGE_SIZE', default=1024, cast=int)
+
+MAX_TOTAL_STORAGE_WARNING_PERCENT = config('MAX_TOTAL_WARNING_PERCENT', default=80, cast=int)
+MAX_TOTAL_STORAGE_WARNING_SIZE = MAX_TOTAL_STORAGE_SIZE * (MAX_TOTAL_STORAGE_WARNING_PERCENT / 100)
+MAX_TOTAL_STORAGE_CRITICAL_PERCENT = config('MAX_TOTAL_CRITICAL_PERCENT', default=90, cast=int)
+MAX_TOTAL_STORAGE_CRITICAL_SIZE = MAX_TOTAL_STORAGE_SIZE * (MAX_TOTAL_STORAGE_CRITICAL_PERCENT / 100)
 
 # CLAMAV configuration.
 

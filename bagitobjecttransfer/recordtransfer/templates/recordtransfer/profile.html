@@ -8,7 +8,6 @@
     <div class="title-text">{% trans "Your Profile" %}</div>
     <form method="post" action="{% url 'recordtransfer:userprofile' %}">
     {% csrf_token %}
-    {% include 'recordtransfer/messages.html' %}
     <div class="flex-item margin-top-25px">
         <label>{% trans "Name" %}</label>
         <input disabled value="{{ user.get_full_name }}">
@@ -42,6 +41,12 @@
     </div>
     <div class="flex-full-width-item">
         {% if user_submissions %}
+            <div>
+                You have <b>{{ user_submissions|length }}</b> records totalling <b>{{ current_storage_size }}</b> still in processing.
+                You have used
+                <span class="storage{% if storage_level %} {{ storage_level }}{% endif %}">
+                {{ current_storage_percent|floatformat }}%</span> of your available storage.
+            </div>
             <table class="full-width-table standard-table" cellspacing="0">
                 <tr>
                     <th>{% trans "Date Transferred" %}</th>

@@ -187,13 +187,17 @@ body {
  * Messages styles
  */
 
-.alert {
+.alert,
+.messagelist {
     position: unset;
     display: flex;
     width: 100%;
     padding: 7px;
     margin: 5px 0px;
     border-radius: 10px;
+    justify-content: center;
+    flex-direction: row;
+    list-style-type: none;
 }
 
 .alert > button {
@@ -210,3 +214,27 @@ body {
     background-color: #d00;
 }
 
+.messagelist li {
+    padding: 0.2em;
+}
+.messagelist li.info {
+    border: 1px darkgray solid;
+    background-color: lightgray;
+}
+.messagelist li.warning {
+    border: 1px #880 solid;
+    background-color: #d80;
+}
+.messagelist li.success {
+    border: 1px #080 solid;
+    background-color: #0d0;
+}
+
+.storage.critical {
+    font-weight: bold;
+    border-bottom: 2px #d00 solid;
+}
+.storage.warning {
+    font-weight: bold;
+    border-bottom: 2px #d80 solid;
+}

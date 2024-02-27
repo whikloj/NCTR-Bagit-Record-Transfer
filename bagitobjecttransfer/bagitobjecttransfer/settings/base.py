@@ -1,6 +1,8 @@
 from decouple import config
 import os
 
+from django.urls import reverse_lazy
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 SECRET_KEY = config('SECRET_KEY', default='q9n%k!e3k8vuoo9vnromslji*hsczyj84krzz1$g=i$wp2r!s-')
@@ -85,6 +87,7 @@ if USE_AZURE_AD_LOGIN:
         # "PUBLIC_PATHS": ['/go/',],  # Optional, public paths accessible by non-authenticated users
     }
     LOGIN_URL = "azure_auth/login"
+    LOGOUT_URI = reverse_lazy('recordtransfer:index')
 
 # Database primary key fields
 

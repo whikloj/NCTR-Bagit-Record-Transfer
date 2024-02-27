@@ -682,6 +682,11 @@ class CustomUserAdmin(UserAdmin):
         ),
     )
 
+    list_display = (
+        *UserAdmin.list_display,  # Original user list display fields
+        'is_active'  # Add on is_active field to display
+    )
+
     inlines = [
         SubmissionInline,
         BagGroupInline,

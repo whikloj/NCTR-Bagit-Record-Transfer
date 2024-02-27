@@ -44,6 +44,14 @@ class User(AbstractUser):
         view_name = 'admin:auth_user_resend_confirmation'
         return reverse(view_name, args=(self.pk,))
 
+    @property
+    def get_uploaded_size(self):
+        """
+        Get the total size of all uploaded files by this user
+        """
+        files = [f.upload_session for f in self.submission_set.all()]
+        return sum(s.upload_size for s in files)
+
 
 class UploadSession(models.Model):
     ''' Represents a file upload session, that may or may not be split into

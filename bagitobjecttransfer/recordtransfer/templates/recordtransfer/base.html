@@ -1,6 +1,5 @@
 {% load static %}
 {% load i18n %}
-
 <!DOCTYPE html>
 <html lang="en" dir="ltr" prefix="content: http://purl.org/rss/1.0/modules/content/  dc: http://purl.org/dc/terms/  foaf: http://xmlns.com/foaf/0.1/  og: http://ogp.me/ns#  rdfs: http://www.w3.org/2000/01/rdf-schema#  schema: http://schema.org/  sioc: http://rdfs.org/sioc/ns#  sioct: http://rdfs.org/sioc/types#  skos: http://www.w3.org/2004/02/skos/core#  xsd: http://www.w3.org/2001/XMLSchema# ">
 <head>
@@ -56,6 +55,11 @@
     <div class="l-content-wrapper l-container">
         <main class="l-main" role="main">
             <div class="focused-content">
+                {% if messages %}
+                    <ul class="messagelist">{% for message in messages %}
+                        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+                    {% endfor %}</ul>
+                {% endif %}
                 {% block focused_content %}{% endblock %}
             </div>
             <div class="region region-content">
@@ -66,11 +70,11 @@
 {% block footer %}
     {% include "recordtransfer/footer.html" %}
 {% endblock %}
-</body>
 {% block endjavascript %}
-<script src="{% static 'recordtransfer/js/libraries1.js' %}"></script>
-<script src="{% static 'recordtransfer/js/eu_cookie_compliance_119.js' %}" defer></script>
-<script src="{% static 'recordtransfer/js/libraries2.js' %}"></script>
-<script src="{% static 'recordtransfer/js/libraries3.js' %}"></script>
+    <script src="{% static 'recordtransfer/js/libraries1.js' %}"></script>
+    <script src="{% static 'recordtransfer/js/eu_cookie_compliance_119.js' %}" defer></script>
+    <script src="{% static 'recordtransfer/js/libraries2.js' %}"></script>
+    <script src="{% static 'recordtransfer/js/libraries3.js' %}"></script>
 {% endblock %}
+    </body>
 </html>
