@@ -2,7 +2,7 @@
 {% load i18n %}
 
 {% block title %}
-{# blocktrans does not allow dot notation, so we define user.username as username #}
+{# blocktrans does not allow dot notation #}
 {% blocktrans with username=user.username %}
 Activate Your New Account, {{ username }}
 {% endblocktrans %}

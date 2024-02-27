@@ -2,14 +2,14 @@
 {% load i18n %}
 
 {% block title %}
-{% blocktrans user.username as username %}
+{% blocktrans with username=user.username %}
 New Transfer Submitted by {{ username }}
 {% endblocktrans %}
 {% endblock %}
 
 {% block message %}
 <div>
-    {% blocktrans user.get_full_name as full_name and user.username as username and action_date|date "M d, Y H:i A" as action_date %}
+    {% blocktrans with full_name=user.get_full_name username=user.username action_date=action_date|date:"M d, Y H:i A" %}
     {{ full_name }} ({{ username }}) submitted a new
     transfer at {{ action_date }} with the NCTR Record Transfer Portal. To
     view their new submission, <a href="{{ submission_url }}">click here</a> or copy and paste
