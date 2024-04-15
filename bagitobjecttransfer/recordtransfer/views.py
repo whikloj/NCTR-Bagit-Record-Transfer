@@ -5,6 +5,7 @@ from typing import Union
 import clamd
 from azure_auth.handlers import AuthHandler
 from django.contrib import messages
+from django.contrib.auth import logout
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse, reverse_lazy
@@ -638,11 +639,16 @@ def _accept_contents(file_upload):
 
 
 class AzurePythonLogoutDecider(RedirectView):
-    """ Local accounts get stuck when passed to Azure for logout, this avoids sending them there. """
+    """ Local accounts get stuck when passed to Azure for logout, this avoids sending them there. Also passes
+    the login_hint to Azure for logout. """
     permanent = False
 
     def get_redirect_url(self, *args, **kwargs):
         if AuthHandler(self.request).get_token_from_cache() is None:
             return reverse('logout')
-        return reverse('azure_auth:logout')
-
+        claims = self.request.session['id_token_claims']
+        logout(self.request)
+        logout_uri = AuthHandler.get_logout_uri()
+        if claims and "login_hint" in claims:
+            logout_uri += ("&" if '?' in logout_uri else "?") + "logout_hint=" + claims["login_hint"]
+        return logout_uri
