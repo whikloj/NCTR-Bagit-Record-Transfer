@@ -1,25 +1,32 @@
-FROM rockylinux:8
+FROM python:3.12-slim
 
-# Set Work Directoy
-WORKDIR /app
-
-# Set Environment Variables
+# Don't generate .pyc files or __pycache__ folders
+ENV PYTHONDONTWRITEBYTECODE=1
+# Don't buffer stdout and stderr
 ENV PYTHONUNBUFFERED=1
 
-# Update all files
-RUN yum -y update
+# defaults
+ENV GUNICORN_WORKERS=2
+ENV GUNICORN_THREADS=4
+ENV GUNICORN_BIND=0.0.0.0:8000
+ENV GUNICORN_WORKER_CLASS=gevent
+ENV RQ_QUEUES=default
+ENV DJANGO_SETTINGS_MODULE=config.settings
 
-# Install Dependencies
-RUN yum install -y git
-RUN yum install -y python39
-RUN python3 -V
-RUN python3 -m pip install --upgrade pip --user
-RUN python3 -m pip install --upgrade setuptools --user
-RUN python3 -m pip install --upgrade wheel --user
-COPY ./requirements.txt .
-RUN python3 -m pip install -r requirements.txt --user
-# Needed to find gunicorn using python39 now
-ENV PATH="/root/.local/bin:${PATH}"
+WORKDIR /app
 
-# Copy Project
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
+
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
