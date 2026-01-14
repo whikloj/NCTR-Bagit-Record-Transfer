@@ -1,6 +1,10 @@
-from .sphinx import *
+from .base import *
 
 DEBUG = True
+
+BAG_STORAGE_FOLDER = "."
+UPLOAD_STORAGE_FOLDER = "."
+
 
 TEST_RUNNER = 'override_storage.LocMemStorageDiscoverRunner'
 
@@ -24,3 +28,13 @@ MIDDLEWARE_CLASSES = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
 ]
+
+RQ_QUEUES = {
+    'default': {
+        'HOST': '0.0.0.0',
+        'PORT': 6379,
+        'DB': 0, # Redis database index
+        'PASSWORD': '',
+        'DEFAULT_TIMEOUT': 500,
+    },
+}

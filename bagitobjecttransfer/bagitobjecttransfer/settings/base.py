@@ -22,7 +22,7 @@ INSTALLED_APPS = [
     'django.forms',
     'formtools',
     'django_rq',
-    'captcha',
+    'django_recaptcha',
     'dbtemplates',
     'azure_auth',
 ]
@@ -78,13 +78,18 @@ if USE_AZURE_AD_LOGIN:
 
     AZURE_AUTH = {
         "CLIENT_ID": config("MS_CLIENT_ID", ""),  # Mandatory
+        "CLIENT_TYPE": config("MS_CLIENT_TYPE", "confidential_client"),  # "public_client" or "confidential_client"
         "CLIENT_SECRET": config("MS_CLIENT_SECRET", ""),  # Mandatory
         "REDIRECT_URI": config("MS_REDIRECT_URL", ""), # Mandatory, and must match Azure app registration.
         "SCOPES": ["User.Read"],
+        "PROMPT": config("MS_PROMPT", "none"),  # Optional, one of "login", "consent", "select_account", "none" (default)
         "AUTHORITY": config("MS_AUTHORITY", "https://login.microsoftonline.com/common"),   # Or https://login.microsoftonline.com/common if multi-tenant
         #"LOGOUT_URI": "https://<domain>/logout",    # Optional
-        "PUBLIC_URLS": ["recordtransfer:index",]  # Optional, public views accessible by non-authenticated users
+        "PUBLIC_URLS": ["recordtransfer:index",],  # Optional, public views accessible by non-authenticated users
         # "PUBLIC_PATHS": ['/go/',],  # Optional, public paths accessible by non-authenticated users
+        "USERNAME_ATTRIBUTE": "mail", # The AAD attribute or ID token claim you want to use as the value for the user model `USERNAME_FIELD`
+        "GROUP_ATTRIBUTE": "roles", # The AAD attribute or ID token claim you want to use as the value for the user's group memberships
+
     }
     LOGIN_URL = "azure_auth/login"
     LOGOUT_URI = reverse_lazy('recordtransfer:index')

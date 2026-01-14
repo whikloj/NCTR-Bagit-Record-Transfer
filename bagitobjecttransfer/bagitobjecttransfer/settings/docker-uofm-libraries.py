@@ -32,7 +32,7 @@ RQ_QUEUES = {
     'default': {
         'HOST': config('RQ_HOST_DEFAULT', 'redis'),
         'PORT': config('RQ_PORT_DEFAULT', 6379),
-        'DB': config('RQ_DB_DEFAULT', 0),
+        'DB': config('RQ_DB_DEFAULT', 0, cast=int),
         'PASSWORD': config('RQ_PASSWORD_DEFAULT', ''),
         'DEFAULT_TIMEOUT': config('RQ_TIMEOUT_DEFAULT', default=360),
     },
@@ -54,7 +54,7 @@ EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 
 # Captcha
 
-SILENCED_SYSTEM_CHECKS = ['captcha.recaptcha_test_key_error']
+SILENCED_SYSTEM_CHECKS = ['django_recaptcha.recaptcha_test_key_error']
 
 # Logging
 

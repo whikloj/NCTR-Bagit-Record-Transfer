@@ -1,21 +1,26 @@
-version: "3.8"
-
 services:
   db:
-    image: mysql
+    image: mysql:8
     container_name: recordtransfer_mysqldb
-    command: --defaults-extra-file=/etc/mysql/mysqld.cnf --default-authentication-plugin=mysql_native_password --mysqlx=0
+    command: --defaults-extra-file=/etc/mysql/mysqld.cnf --mysqlx=0
     restart: always
     ports:
       - 3306:3306
     environment:
       MYSQL_PORT: 3306
+      MYSQL_ROOT_PASSWORD: rootpassword
     env_file:
-      - ./.dockerenv
+      - ./test.dockerenv
     volumes:
       - mysql-database:/var/lib/mysql
       - ./docker/mysql/mysqld.cnf:/etc/mysql/mysqld.cnf:ro
       - ./docker/logs/mysql:/var/log/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
 
   email:
     image: mailhog/mailhog
@@ -46,45 +51,56 @@ services:
 
   app:
     build: .
+    image: secure-record-transfer:local
     container_name: recordtransfer_django_app
     entrypoint:
       - /bin/bash
-      - /app/docker/django/django-entrypoint.sh
+      - /app/entrypoint.sh
     volumes:
       - ./:/app
       - temp-directory:/tmp
       - ./docker/logs/django-rq:/var/log/django-rq/
       - ./docker/logs/django:/var/log/django/
+      - static-files:/app/static
     ports:
       - 8000:8000
     env_file:
-      - ./.dockerenv
+      - ./test.dockerenv
     environment:
-      DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker
+      DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker-uofm-libraries
+      ROLE: web
     depends_on:
-      - rq
-      - db
-      - email
-      - clamav
+      db:
+        condition: service_healthy
+      rq:
+        condition: service_started
+      email:
+        condition: service_started
+      clamav:
+        condition: service_started
 
   rq:
     build: .
+    image: secure-record-transfer:local
     container_name: recordtransfer_rq_workers
     entrypoint:
       - /bin/bash
-      - /app/docker/django-rq/django-rq-entrypoint.sh
+      - /app/entrypoint.sh
     volumes:
       - ./:/app
       - temp-directory:/tmp
       - ./docker/logs/django-rq:/var/log/django-rq/
       - ./docker/logs/django:/var/log/django/
     env_file:
-      - ./.dockerenv
+      - ./test.dockerenv
     environment:
-      DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker
+      DJANGO_SETTINGS_MODULE: bagitobjecttransfer.settings.docker-uofm-libraries
+      ROLE: worker
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   redis:
     image: redis:5.0.7-alpine
@@ -98,8 +114,26 @@ services:
     environment:
       REDIS_REPLICATION_MODE: master
 
+  nginx:
+    image: nginx:alpine
+    container_name: recordtransfer_nginx
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - static-files:/usr/share/nginx/html/static:ro
+      - ./media:/usr/share/nginx/html/media:ro
+      - ./docker/logs/nginx:/var/log/nginx
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   temp-directory:
   mysql-database:
   mailhog:
   clamav-virusdb:
+  static-files:

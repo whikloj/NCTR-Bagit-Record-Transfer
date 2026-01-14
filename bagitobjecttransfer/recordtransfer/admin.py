@@ -4,7 +4,8 @@ from pathlib import Path
 
 from django.contrib import admin, messages
 from django.contrib.admin.utils import unquote
-from django.contrib.auth.admin import UserAdmin, sensitive_post_parameters_m
+from django.contrib.auth.admin import UserAdmin
+from django.views.decorators.debug import sensitive_post_parameters
 from django.db.models import Q
 from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
@@ -700,7 +701,7 @@ class CustomUserAdmin(UserAdmin):
     def has_delete_permission(self, request, obj=None):
         return obj and request.user.is_superuser
 
-    @sensitive_post_parameters_m
+    @sensitive_post_parameters()
     def user_change_password(self, request, id, form_url=''):
         """ Send a notification email when a user's password is changed. """
         response = super().user_change_password(request, id, form_url)

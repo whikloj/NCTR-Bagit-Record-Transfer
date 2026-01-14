@@ -1,10 +1,7 @@
-from django.core.files.storage import get_storage_class
-
+from django.core.files.storage import FileSystemStorage
 from recordtransfer import settings
 
-Storage = get_storage_class()
-
-class OverwriteStorage(Storage):
+class OverwriteStorage(FileSystemStorage):
     ''' Overwrites files in storage if they have the same name.
 
     Django's default method of storing files named the same thing is to append a unique suffix to
@@ -18,7 +15,7 @@ class OverwriteStorage(Storage):
     def get_available_name(self, name, max_length=None):
         return name
 
-class UploadedFileStorage(Storage):
+class UploadedFileStorage(FileSystemStorage):
     ''' Stores files in UPLOAD_STORAGE_FOLDER
     '''
     def __init__(self, **kwargs):

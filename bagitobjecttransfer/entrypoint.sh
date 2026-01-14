@@ -13,8 +13,19 @@ GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-gthread}
 RQ_QUEUES=${RQ_QUEUES:-default}
 
 if [ "$ROLE" = "web" ]; then
+  echo "Waiting for database to be ready..."
+  # Wait for MySQL to be ready
+  while ! nc -z ${MYSQL_HOST:-db} ${MYSQL_PORT:-3306}; do
+      echo "Waiting for MySQL..."
+      sleep 2
+  done
+  echo "Database is ready!"
+
   echo "[web] Collecting static files..."
   python manage.py collectstatic --clear --no-input -v0
+
+  echo "Running migrations..."
+  python manage.py migrate --noinput
 
   echo "[web] Starting Gunicorn"
   exec gunicorn bagitobjecttransfer.wsgi:application \

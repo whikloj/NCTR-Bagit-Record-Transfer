@@ -2,7 +2,7 @@ import logging
 import uuid
 from typing import Union
 
-import clamd
+import clamav_client
 from azure_auth.handlers import AuthHandler
 from django.contrib import messages
 from django.contrib.auth import logout
@@ -26,6 +26,11 @@ from recordtransfer.tokens import account_activation_token
 from recordtransfer.utils import get_human_readable_file_count, get_human_readable_size, mib_to_bytes, bytes_to_mib
 
 LOGGER = logging.getLogger(__name__)
+
+CLAMAV_CONFIG = clamav_client.scanner.ClamdScannerConfig()
+CLAMAV_CONFIG.update({
+    "address": f"{CLAMAV_HOST}:{CLAMAV_PORT}",
+})
 
 
 def _add_storage_messages(request):
@@ -312,23 +317,12 @@ def uploadfiles(request):
                 issues.append({'file': _file.name, **session_check})
                 continue
 
-            try:
-                content_check = _accept_contents(_file)
-                if not content_check['accepted']:
-                    _file.close()
-                    issues.append({'file': _file.name, **content_check})
-                    continue
-            except clamd.ClamdError as exc:
-                LOGGER.error("Unable to scan file (%s)", uploadfiles, exc_info=exc)
-                session.remove_session_uploads()
-                return JsonResponse(
-                    {'uploadSessionToken': session.token,
-                     'error': gettext('500 Internal Server Error'),
-                     'verboseError': gettext('500 Internal Server Error'),
-                     'fatalError': True,
-                     'redirect': reverse('recordtransfer:systemerror')
-                     }, status=500
-                )
+            content_check = _accept_contents(_file)
+            if not content_check['accepted']:
+                _file.close()
+                issues.append({'file': _file.name, **content_check})
+                continue
+
 
             new_file = UploadedFile(session=session, file_upload=_file, name=_file.name)
             new_file.save()
@@ -619,10 +613,9 @@ def _accept_contents(file_upload):
             'reason' and a 'status' key.
     '''
     if CLAMAV_ENABLED:
-        clamd_socket = clamd.ClamdNetworkSocket(CLAMAV_HOST, CLAMAV_PORT)
-        scan_results = clamd_socket.instream(file_upload.file)
-        status, reason = scan_results['stream']
-        if status != 'OK':
+        clamd_socket = clamav_client.get_scanner(CLAMAV_CONFIG)
+        scan_results = clamd_socket.scan(file_upload.file)
+        if scan_results.passed == False:
             return {
                 'accepted': False,
                 'error': 'Malware found in file',
@@ -631,8 +624,19 @@ def _accept_contents(file_upload):
                     'will be sent to the administrator'.format(file_upload)
                 ),
                 'clamav': {
-                    'reason': reason,
-                    'status': status,
+                    'reason': scan_results.details,
+                }
+            }
+        elif scan_results.passed is None:
+            return {
+                'accepted': False,
+                'error': 'Unable to scan file for malware',
+                'verboseError': gettext(
+                    'The file "{0}" could not be scanned for malware! This issue '
+                    'will be sent to the administrator'.format(file_upload)
+                ),
+                'clamav': {
+                    'reason': scan_results.details,
                 }
             }
     return {'accepted': True}

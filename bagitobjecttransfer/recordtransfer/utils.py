@@ -105,7 +105,6 @@ def get_human_readable_file_count(file_names: list, accepted_file_groups: dict, 
     if not statement:
         return 'No file types could be identified'
 
-    string_statement = ''
     if len(statement) == 1:
         string_statement = statement[0]
     elif len(statement) == 2:
