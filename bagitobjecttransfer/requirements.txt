@@ -22,7 +22,7 @@ packaging>=25.0
 protobuf>=6.33
 PyMySQL>=1.1.1
 pyparsing>=3.2
-clamav-client>=0.7.1
+python-clamd>=1.0.2
 python-decouple==3.8
 pytz>=2025.2
 redis>=6.4.0

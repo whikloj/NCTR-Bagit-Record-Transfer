@@ -43,10 +43,10 @@ services:
     ports:
       - 3310:3310
     volumes:
-      - ./docker/logs/clamav:/var/log/clamav
+      - ./docker/logs/clamav:/var/log/clamav:Z
       - ./docker/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
       - ./docker/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
-      - clamav-virusdb:/var/lib/clamav
+      - ./docker/clamav/virusdb:/var/lib/clamav
       - temp-directory:/tmp
 
   app:
@@ -59,8 +59,8 @@ services:
     volumes:
       - ./:/app
       - temp-directory:/tmp
-      - ./docker/logs/django-rq:/var/log/django-rq/
-      - ./docker/logs/django:/var/log/django/
+      - ./docker/logs/django-rq:/var/log/django-rq/:Z
+      - ./docker/logs/django:/var/log/django/:Z
       - static-files:/app/static
     ports:
       - 8000:8000
@@ -89,8 +89,8 @@ services:
     volumes:
       - ./:/app
       - temp-directory:/tmp
-      - ./docker/logs/django-rq:/var/log/django-rq/
-      - ./docker/logs/django:/var/log/django/
+      - ./docker/logs/django-rq:/var/log/django-rq/:Z
+      - ./docker/logs/django:/var/log/django/:Z
     env_file:
       - ./test.dockerenv
     environment:
@@ -109,8 +109,8 @@ services:
     ports:
       - 6379:6379
     volumes:
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
-      - ./docker/logs/redis:/var/log/redis
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./docker/logs/redis:/var/log/redis:Z
     environment:
       REDIS_REPLICATION_MODE: master
 
