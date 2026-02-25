@@ -21,6 +21,7 @@ DATABASES = {
         'USER': config('MYSQL_USER'),
         'PASSWORD': config('MYSQL_PASSWORD'),
         'NAME': config('MYSQL_DATABASE'),
+        'CONN_MAX_AGE': config('MYSQL_CONN_MAX_AGE', 60, cast=int),
     }
 }
 
@@ -97,6 +98,11 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': '/var/log/django/recordtransfer.log',
             'formatter': 'standard',
+        },
+        'django_recaptcha': {
+            'class': 'logging.FileHandler',
+            'filename': '/var/log/django/recaptcha.log',
+            'formatter': 'standard',
         }
     },
     'loggers': {
@@ -113,6 +119,11 @@ LOGGING = {
             'handlers': ['rqworker_file'],
             'level': 'INFO',
             'propagate': True,
+        },
+        'django_recaptcha': {
+            'handlers': ['django_recaptcha'],
+            'level': 'INFO',
+            'propogate': False,
         }
     }
 }

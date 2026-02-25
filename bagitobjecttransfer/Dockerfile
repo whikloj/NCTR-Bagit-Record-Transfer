@@ -1,9 +1,6 @@
 # ---------- Builder stage ----------
 FROM python:3.12-slim AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
 WORKDIR /app
 
 # Install dependencies needed for pip, git, and building packages
@@ -17,10 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dirmngr \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip, setuptools, wheel
-#RUN python -m pip install --upgrade pip setuptools wheel
-# Installing setuptools in requirements.txt so it is available in the final image.
-
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --prefix=/install --no-cache-dir -r requirements.txt
@@ -30,9 +23,6 @@ COPY . .
 
 # ---------- Final stage ----------
 FROM python:3.12-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 
 # Django / Gunicorn / RQ defaults
 ENV GUNICORN_WORKERS=2

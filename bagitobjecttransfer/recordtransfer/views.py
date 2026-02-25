@@ -1,8 +1,12 @@
 import logging
+import os
+import shutil
+import socket
+import struct
+import tempfile
 import uuid
 from typing import Union
 
-import clamav_client
 import clamd
 from azure_auth.handlers import AuthHandler
 from django.contrib import messages
@@ -220,17 +224,6 @@ class TransferFormWizard(PermissionRequiredMixin, SessionWizardView):
         if step_name == 'grouptransfer':
             users_groups = BagGroup.objects.filter(created_by=self.request.user)
             context.update({'users_groups': users_groups})
-        elif step_name == 'uploadfiles':
-            context.update({
-                'msal': {
-                    'client_id': settings.FP_CLIENT_ID,
-                    'authority': 'https://login.microsoftonline.com/' + settings.FP_TENANT_ID,
-                    'redirect_uri': '/',
-                    'client_base_uri': 'https://onedrive.live.com/picker',
-                    'message_id': uuid.uuid4().hex[:6].upper(),
-                    'current_host': self.request.get_host(),
-                }
-            })
         context.update({'save_form_state': 'disabled'})
         return context
 
@@ -338,7 +331,7 @@ def uploadfiles(request):
         return JsonResponse({'uploadSessionToken': session.token, 'issues': issues}, status=200)
 
     except Exception as exc:
-        LOGGER.error(msg=('Uncaught exception in uploadfiles view: {0}'.format(str(exc))))
+        LOGGER.error(msg=('Uncaught exception in uploadfiles view: {0}'.format(str(exc))), exc_info=exc)
         return JsonResponse({
             'error': gettext('500 Internal Server Error'),
             'verboseError': gettext('500 Internal Server Error'),
@@ -621,15 +614,47 @@ def _accept_contents(file_upload):
             'reason' and a 'status' key.
     '''
     if CLAMAV_ENABLED:
-        clamd_socket = clamd.ClamdNetworkSocket(host=CLAMAV_HOST, port=CLAMAV_PORT)
-        scan_results = clamd_socket.instream(file_upload.file)
-        status, reason = scan_results['stream']
-        if status != 'OK':
+        file_upload.file.seek(0)
+
+        # Create temp file with restrictive permissions
+        fd, tmp_path = tempfile.mkstemp(prefix='clamav_scan_', suffix='.tmp')
+        try:
+            # Set file permissions to owner-only (0600)
+            os.chmod(tmp_path, 0o600)
+
+            # Write with explicit file descriptor control
+            with os.fdopen(fd, 'wb') as tmp:
+                tmp.write(file_upload.file.read())
+                tmp.flush()
+                os.fsync(tmp.fileno())  # Force write to disk
+
+            clamd_socket = clamd.ClamdNetworkSocket(host=CLAMAV_HOST, port=CLAMAV_PORT)
+            scan_results = clamd_socket.scan(tmp_path)
+            if tmp_path in scan_results:
+                status, reason = scan_results[tmp_path]
+                if status == 'OK':
+                    return {'accepted': True}
+                return {
+                    'accepted': False,
+                    'error': 'Malware found in file',
+                    'verboseError': gettext(
+                        'The file "{0}" was identified to contain malware! This issue '
+                        'will be sent to the administrator'.format(file_upload)
+                    ),
+                    'clamav': {
+                        'reason': reason,
+                        'status': status,
+                    }
+                }
+            else:
+                LOGGER.warning(f"Did not get scan result for {tmp_path} from CLAMAV")
+                reason = "No scan result from CLAMAV"
+                status = 'ERROR'
             return {
                 'accepted': False,
-                'error': 'Malware found in file',
+                'error': 'Potential malware found in file',
                 'verboseError': gettext(
-                    'The file "{0}" was identified to contain malware! This issue '
+                    'The file "{0}" was identified to potentially contain malware! This issue '
                     'will be sent to the administrator'.format(file_upload)
                 ),
                 'clamav': {
@@ -637,6 +662,11 @@ def _accept_contents(file_upload):
                     'status': status,
                 }
             }
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except FileNotFoundError:
+                pass
     return {'accepted': True}
 
 

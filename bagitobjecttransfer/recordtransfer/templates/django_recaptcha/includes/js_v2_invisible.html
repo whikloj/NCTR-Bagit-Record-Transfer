@@ -1,0 +1,17 @@
+{# The provided implementation caters for only one reCAPTCHA on a page. Override this template and its logic as needed. #}
+<script src="https://{{ recaptcha_domain }}/recaptcha/api.js{% if api_params %}?{{ api_params }}{% endif %}" async defer></script>
+<script>
+    // Submit function to be called, after reCAPTCHA was successful.
+    var onSubmit_{{ widget_uuid }} = function(token) {
+        console.log("reCAPTCHA validated for 'data-widget-uuid=\"{{ widget_uuid }}\"'. Submitting form...")
+        document.querySelector('.g-recaptcha[data-widget-uuid="{{ widget_uuid }}"]').closest('form').requestSubmit();
+    };
+
+    // Helper function to prevent form submission and execute verification.
+    var verifyCaptcha_{{ widget_uuid }} = function(e) {
+        if (e) {
+            e.preventDefault();
+        }
+        grecaptcha.execute(recaptchaWidgetId);
+    };
+</script>

@@ -1,0 +1,42 @@
+{# The provided implementation caters for only one reCAPTCHA on a page. Override this template and its logic as needed. #}
+<script src="https://{{ recaptcha_domain }}/recaptcha/api.js?render={{ public_key }}{% if api_params %}&{{ api_params }}{% endif %}"></script>
+<script>
+    var element = null;
+    var form = null;
+    // store guard on window so multiple includes share it
+    window.__recaptcha_executing = window.__recaptcha_executing || false;
+
+    grecaptcha.ready(function() {
+        element = document.querySelector('.g-recaptcha[data-widget-uuid="{{ widget_uuid }}"]');
+        if (element) {
+            // prefer closest form ancestor for robustness
+            form = element.closest('form');
+        }
+    });
+
+    function recaptchaFormSubmit(event) {
+        // avoid re-entry if already executing
+        if (window.__recaptcha_executing) {
+            console.log('recaptcha already executing, returning');
+            return;
+        }
+        if (event && event.preventDefault) {
+            event.preventDefault();
+        }
+        window.__recaptcha_executing = true;
+        {% if action %}
+        grecaptcha.execute('{{ public_key }}', {action: '{{ action|escape }}'})
+        {% else %}
+        grecaptcha.execute('{{ public_key }}', {})
+        {% endif %}
+        .then(function(token) {
+            console.log("reCAPTCHA validated for 'data-widget-uuid=\"{{ widget_uuid }}\"'. Setting input value...")
+            element.value = token;
+            element.form.submit();
+        })
+        .catch(function(error) {
+            console.error('reCAPTCHA error:', error);
+            window.__recaptcha_executing = false;
+        });
+    }
+</script>

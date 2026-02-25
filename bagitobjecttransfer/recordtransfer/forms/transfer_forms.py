@@ -1,8 +1,9 @@
 ''' Forms specific to transferring files with a new submission '''
 from django_recaptcha.fields import ReCaptchaField
-from django_recaptcha.widgets import ReCaptchaV2Invisible
+from django_recaptcha.widgets import ReCaptchaV3
 from django import forms
 from django.utils.translation import gettext
+from bagitobjecttransfer.settings.base import RECAPTCHA_PUBLIC_KEY, RECAPTCHA_PRIVATE_KEY
 
 
 class TransferForm(forms.Form):
@@ -76,6 +77,46 @@ class GroupTransferForm(TransferForm):
     )
 
 
+class CachedReCaptchaField(ReCaptchaField):
+    """
+    Wrapper around ReCaptchaField that stores successfully validated tokens
+    on the current request object to avoid repeated remote verification when
+    the formwizard re-validates steps during final submission. This is request-
+    scoped, short-lived (lives only for the request) and avoids process-global
+    state.
+    """
+    def _get_request_from_stack(self):
+        # Walk the frame stack looking for a 'request' local, similar to what's
+        # done elsewhere in this codebase and in the original ReCaptchaField.
+        import sys
+        f = sys._getframe()
+        while f:
+            request = f.f_locals.get('request')
+            if request is not None:
+                return request
+            f = f.f_back
+        return None
+
+    def validate(self, value):
+        # Try to find the current request; if found, use a per-request set to
+        # remember validated tokens for the lifetime of the request.
+        request = self._get_request_from_stack()
+        if request is not None:
+            token_set = getattr(request, '_recaptcha_validated_tokens', None)
+            if token_set is not None and value in token_set:
+                # Token already validated earlier in this request; skip external call
+                return
+
+        # Perform the normal validation (this will call client.submit)
+        super().validate(value)
+
+        # If validation succeeded, mark token as validated on the request.
+        if request is not None:
+            if not hasattr(request, '_recaptcha_validated_tokens'):
+                setattr(request, '_recaptcha_validated_tokens', set())
+            request._recaptcha_validated_tokens.add(value)
+
+
 class UploadFilesForm(TransferForm):
     ''' The form where users upload their files and add a title '''
     submission_title = forms.CharField(
@@ -95,4 +136,9 @@ class UploadFilesForm(TransferForm):
         label='hidden'
     )
 
-    captcha = ReCaptchaField(widget=ReCaptchaV2Invisible, label='hidden')
+    captcha = CachedReCaptchaField(
+        widget=ReCaptchaV3(attrs={'data-callback': ''}),
+        label='hidden',
+        public_key=RECAPTCHA_PUBLIC_KEY,
+        private_key=RECAPTCHA_PRIVATE_KEY
+    )

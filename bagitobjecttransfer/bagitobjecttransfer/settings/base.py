@@ -1,3 +1,5 @@
+from typing import cast
+
 from decouple import config
 import os
 
@@ -82,7 +84,7 @@ if USE_AZURE_AD_LOGIN:
         "CLIENT_SECRET": config("MS_CLIENT_SECRET", ""),  # Mandatory
         "REDIRECT_URI": config("MS_REDIRECT_URL", ""), # Mandatory, and must match Azure app registration.
         "SCOPES": ["User.Read"],
-        "PROMPT": config("MS_PROMPT", "none"),  # Optional, one of "login", "consent", "select_account", "none" (default)
+        "PROMPT": config("MS_PROMPT", "login"),  # Optional, one of "login", "consent", "select_account", "none" (default)
         "AUTHORITY": config("MS_AUTHORITY", "https://login.microsoftonline.com/common"),   # Or https://login.microsoftonline.com/common if multi-tenant
         #"LOGOUT_URI": "https://<domain>/logout",    # Optional
         "PUBLIC_URLS": ["recordtransfer:index",],  # Optional, public views accessible by non-authenticated users
@@ -101,6 +103,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 # WSGI
 
 WSGI_APPLICATION = 'bagitobjecttransfer.wsgi.application'
+
+# RECAPTCHA
+# Generated from https://www.google.com/recaptcha/admin
+RECAPTCHA_PUBLIC_KEY = config('RECAPTCHA_PUBLIC_KEY', default='')
+RECAPTCHA_PRIVATE_KEY = config('RECAPTCHA_PRIVATE_KEY', default='')
+RECAPTCHA_REQUIRED_SCORE = config('RECAPTCHA_REQUIRED_SCORE', default='0.0', cast=float)
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators

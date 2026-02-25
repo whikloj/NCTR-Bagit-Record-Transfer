@@ -541,7 +541,10 @@ $(() => {
                         // Show the end of the dropzone animation by delaying submission
                         window.setTimeout(() => {
                             // Use this function to execute the invisible Captcha methods.
-                            singleCaptchaFn();
+                            const form = dropzoneClosure.closest('form');
+                            if (form) {
+                                form.submit()
+                            }
                         }, 1000)
                     }
                     else {
