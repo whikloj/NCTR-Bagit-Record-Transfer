@@ -30,9 +30,7 @@ if [ "$ROLE" = "web" ]; then
   echo "[web] Starting Gunicorn"
   exec gunicorn bagitobjecttransfer.wsgi:application \
     --bind "${GUNICORN_BIND}" \
-    --workers "${GUNICORN_WORKERS}" \
-    --threads "${GUNICORN_THREADS}" \
-    --worker-class "${GUNICORN_WORKER_CLASS}" \
+    --umask 007 \
     --timeout "${GUNICORN_TIMEOUT}" \
     --graceful-timeout "${GUNICORN_GRACEFUL_TIMEOUT}" \
     --access-logfile - \

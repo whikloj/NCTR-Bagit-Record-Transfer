@@ -11,6 +11,9 @@
         if (element) {
             // prefer closest form ancestor for robustness
             form = element.closest('form');
+            if (form) {
+                form.addEventListener('submit', recaptchaFormSubmit);
+            }
         }
     });
 
