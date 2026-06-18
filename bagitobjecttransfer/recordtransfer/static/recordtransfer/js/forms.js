@@ -165,17 +165,17 @@ function incrementLabelAttributes(form) {
  * @param {String} deleteFormSelector The selector for the form row
  */
 function deleteForm(deleteFormSelector) {
-    var prefix = getFormPrefix()
-    var total = getTotalForms(prefix)
+    const prefix = getFormPrefix()
+    const total = getTotalForms(prefix)
 
     if (total > 1) {
         $(deleteFormSelector).remove()
 
-        var forms = $('.form-row')
+        const forms = $('.form-row')
         $(`#id_${prefix}-TOTAL_FORMS`).val(forms.length)
 
         // Update each input's index for the remaining forms
-        for (var i = 0; i < forms.length; i++) {
+        for (let i = 0; i < forms.length; i++) {
             $(forms.get(i)).find(':input').each((_, element) => {
                 updateElementIndex(element, i, prefix);
             });
@@ -189,10 +189,10 @@ function deleteForm(deleteFormSelector) {
  * @param {Number} index The new index the element is to have
  */
 function updateElementIndex(element, index, prefix) {
-    var idRegex = new RegExp(`(${prefix}-\\d+)`);
-    var replacement = prefix + '-' + index;
+    const idRegex = new RegExp(`(${prefix}-\\d+)`);
+    const replacement = prefix + '-' + index;
 
-    forValue = $(element).attr("for")
+    const forValue = $(element).attr("for")
     if (forValue) {
         const new_for = forValue.replace(idRegex, replacement)
         $(element).attr({
@@ -211,11 +211,15 @@ function updateElementIndex(element, index, prefix) {
 
 /**
  * Appends an error message to the page in the dropzone-errors element.
+ * @param {String} filename The file name
  * @param {String} errorMessage The error message to show
  */
-function addDropzoneError(errorMessage) {
-    errorZone = document.getElementById('dropzone-errors')
-    newError = document.createElement('div')
+function addDropzoneError(filename, errorMessage) {
+    const errorZone = document.getElementById('dropzone-errors')
+    const newError = document.createElement('div')
+    const nameAttrib = document.createAttribute('data-filename')
+    nameAttrib.value = filename
+    newError.attributes.setNamedItem(nameAttrib)
     newError.className = 'field-error'
     newError.innerHTML = errorMessage
     errorZone.appendChild(newError)
@@ -225,9 +229,21 @@ function addDropzoneError(errorMessage) {
  * Removes all errors shown in the dropzone-errors element.
  */
 function clearDropzoneErrors() {
-    errorZone = document.getElementById('dropzone-errors')
+    const errorZone = document.getElementById('dropzone-errors')
     while (errorZone.lastElementChild) {
         errorZone.removeChild(errorZone.lastElementChild);
+    }
+}
+
+/**
+ * Remove an error for the specified filename if it exists.
+ * @param filename The filename of the error to remove.
+ */
+function removeDropzoneError(filename) {
+    const errorZone = document.getElementById('dropzone-errors')
+    const matchingError = $('div[data-filename = "' + filename + '"]', errorZone)
+    if (matchingError.length) {
+        matchingError.remove()
     }
 }
 
@@ -466,13 +482,13 @@ $(() => {
             // Triggers on non-200 status
             this.on("error", (file, response, xhr) => {
                 if (response.verboseError) {
-                    addDropzoneError(response.verboseError)
+                    addDropzoneError(file.name, response.verboseError)
                 }
                 else if (response.error) {
-                    addDropzoneError(response.error)
+                    addDropzoneError(file.name, response.error)
                 }
                 else {
-                    addDropzoneError(response)
+                    addDropzoneError(file.name, response)
                 }
 
                 issueFiles.push(file.name)
@@ -497,6 +513,9 @@ $(() => {
                     document.getElementById("submit-form-btn").disabled = false
                     clearDropzoneErrors()
                     this.element.classList.remove('dz-submit-disabled')
+                } else {
+                    // Remove any issue messages related to this file.
+                    removeDropzoneError(file.name)
                 }
             })
 
