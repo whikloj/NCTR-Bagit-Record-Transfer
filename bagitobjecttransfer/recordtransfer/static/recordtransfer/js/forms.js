@@ -241,7 +241,7 @@ function clearDropzoneErrors() {
  */
 function removeDropzoneError(filename) {
     const errorZone = document.getElementById('dropzone-errors')
-    const matchingError = $('div[@data-filename = "' + filename + '"]', errorZone)
+    const matchingError = $('div[data-filename = "' + filename + '"]', errorZone)
     if (matchingError.length) {
         matchingError.remove()
     }
