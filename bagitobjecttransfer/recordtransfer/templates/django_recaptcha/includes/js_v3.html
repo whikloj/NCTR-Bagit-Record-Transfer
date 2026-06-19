@@ -24,8 +24,8 @@
             return;
         }
         const submitter = event.submitter;
-        if (submitter.formNoValidate) {
-            console.log('Not validating the form, just leaving');
+        if (submitter != null && submitter.formNoValidate) {
+            console.log('Not validating the form, moving to previous step');
             return;
         }
         if (event && event.preventDefault) {
