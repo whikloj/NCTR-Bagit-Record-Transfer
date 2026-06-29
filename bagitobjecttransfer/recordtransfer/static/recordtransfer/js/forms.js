@@ -570,7 +570,7 @@ $(() => {
                         console.error('Could not find any input id matching "session_token" on the page!')
                     }
                 }
-                else if (!issueFiles.length === dropzoneClosure.files.length) {
+                else if (issueFiles.length !== dropzoneClosure.files.length) {
                     alert('There are one or more files that could not be uploaded. Remove these files and try again.')
                 }
             })

@@ -49,4 +49,4 @@ class SignUpForm(UserCreationForm):
         widget=forms.TextInput(),
         label=gettext('Last name'))
 
-    captcha = ReCaptchaField()
+    captcha = ReCaptchaV3()
