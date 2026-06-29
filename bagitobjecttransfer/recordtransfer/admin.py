@@ -5,15 +5,16 @@ from pathlib import Path
 from django.contrib import admin, messages
 from django.contrib.admin.utils import unquote
 from django.contrib.auth.admin import UserAdmin
-from django.views.decorators.debug import sensitive_post_parameters
 from django.db.models import Q
 from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse, path
+from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext
+from django.views.decorators.debug import sensitive_post_parameters
 
 from recordtransfer.forms import InlineBagGroupForm, SubmissionForm, \
     InlineSubmissionForm, AppraisalForm, InlineAppraisalFormSet, UploadSessionForm, \
@@ -701,7 +702,7 @@ class CustomUserAdmin(UserAdmin):
     def has_delete_permission(self, request, obj=None):
         return obj and request.user.is_superuser
 
-    @sensitive_post_parameters()
+    @method_decorator(sensitive_post_parameters())
     def user_change_password(self, request, id, form_url=''):
         """ Send a notification email when a user's password is changed. """
         response = super().user_change_password(request, id, form_url)
