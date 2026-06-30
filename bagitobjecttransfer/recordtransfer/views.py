@@ -671,16 +671,28 @@ def _accept_contents(file_upload):
 
 
 class AzurePythonLogoutDecider(RedirectView):
-    """ Local accounts get stuck when passed to Azure for logout, this avoids sending them there. Also passes
-    the login_hint to Azure for logout. """
+    """Handle POST logout requests for local and Azure accounts."""
     permanent = False
+
+    def get(self, request, *args, **kwargs):
+        # Logout is POST-only to keep CSRF protection.
+        return HttpResponseRedirect(reverse('recordtransfer:index'))
+
+    def post(self, request, *args, **kwargs):
+        return HttpResponseRedirect(self.get_redirect_url(*args, **kwargs))
 
     def get_redirect_url(self, *args, **kwargs):
         if AuthHandler(self.request).get_token_from_cache() is None:
-            return reverse('logout')
-        claims = self.request.session['id_token_claims']
+            # Regular Django account
+            logout(self.request)
+            messages.success(self.request, 'You have been logged out successfully.')
+            return reverse('recordtransfer:index')
+
+        # Azure account: end local session and redirect to provider logout endpoint.
+        claims = self.request.session.get('id_token_claims', {})
         logout(self.request)
-        logout_uri = AuthHandler.get_logout_uri()
+        handler = AuthHandler(self.request)
+        logout_uri = handler.get_logout_uri()
         if claims and "login_hint" in claims:
             logout_uri += ("&" if '?' in logout_uri else "?") + "logout_hint=" + claims["login_hint"]
         return logout_uri

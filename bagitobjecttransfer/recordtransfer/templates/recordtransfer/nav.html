@@ -41,9 +41,16 @@
                     {% endif %}
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link main" href="{% url 'recordtransfer:logout' %}">
-                        {% trans "Logout" %}
-                    </a>
+                    <form method="post" action="{% url 'recordtransfer:logout' %}" style="display:inline; margin:0;">
+                        {% csrf_token %}
+                        <button
+                            type="submit"
+                            class="nav-link main"
+                            style="background:none; border:none; padding:0; cursor:pointer;"
+                        >
+                            {% trans "Logout" %}
+                        </button>
+                    </form>
                 </li>
             {% elif not user.is_authenticated %}
                 {% if SIGN_UP_ENABLED %}
