@@ -12,7 +12,7 @@ Activate Your New Account, {{ username }}
 {% url 'recordtransfer:activateaccount' uid token as activateaccount %}
 <div>
     {% blocktrans %}
-    Someone created a new account for the NCTR Record Transfer Portal using this email.
+    Someone created a new account for the {{ site_name }} using this email.
     To activate your account, <a href="http://{{ base_url }}{{ activateaccount }}">click here</a>,
     or copy and paste the following link into your favourite browser:
     {% endblocktrans %}

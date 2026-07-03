@@ -11,7 +11,7 @@ Transfer Submitted by {{ username }} Failed
 <p>
     {% blocktrans with full_name=user.get_full_name username=user.username action_date=action_date|date:"F d, Y H:i A" %}
     {{ full_name }} ({{ username }}) attempted to
-    submit a new transfer at {{ action_date }} using the NCTR Record Transfer
+    submit a new transfer at {{ action_date }} using the {{ site_name }}
     Portal, but an error occurred.
 </p>
 {% endblock %}

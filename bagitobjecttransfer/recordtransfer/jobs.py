@@ -178,6 +178,7 @@ def send_bag_creation_success(form_data: dict, submission: Submission):
     '''
     subject = 'New Transfer Ready for Review'
     domain = Site.objects.get_current().domain
+    site_name = Site.objects.get_current().name
     from_email = '{0}@{1}'.format(DO_NOT_REPLY_USERNAME, domain)
     submission_url = 'http://{domain}/{change_url}'.format(
         domain=domain.rstrip(' /'),
@@ -199,6 +200,7 @@ def send_bag_creation_success(form_data: dict, submission: Submission):
                 'form_data': form_data,
                 'submission_url': submission_url,
                 'action_date': submission.submission_date,
+                'site_name': site_name,
             }
         )
 
@@ -214,6 +216,7 @@ def send_bag_creation_failure(form_data: dict, user_submitted: User):
     '''
     subject = 'Bag Creation Failed'
     domain = Site.objects.get_current().domain
+    site_name = Site.objects.get_current().name
     from_email = '{0}@{1}'.format(DO_NOT_REPLY_USERNAME, domain)
 
     recipient_emails = _get_admin_recipient_list(subject)
@@ -228,6 +231,7 @@ def send_bag_creation_failure(form_data: dict, user_submitted: User):
                 'user': user_submitted,
                 'form_data': form_data,
                 'action_date': timezone.now(),
+                'site_name': site_name,
             }
         )
 
@@ -242,6 +246,7 @@ def send_thank_you_for_your_transfer(form_data: dict, submission: Submission):
     '''
     if submission.user.gets_notification_emails:
         domain = Site.objects.get_current().domain
+        site_name = Site.objects.get_current().name
         from_email = '{0}@{1}'.format(DO_NOT_REPLY_USERNAME, domain)
 
         user_submitted = submission.user
@@ -255,6 +260,7 @@ def send_thank_you_for_your_transfer(form_data: dict, submission: Submission):
                 'form_data': form_data,
                 'archivist_email': ARCHIVIST_EMAIL,
                 'action_date': submission.submission_date,
+                'site_name': site_name,
             }
         )
 
@@ -269,6 +275,7 @@ def send_your_transfer_did_not_go_through(form_data: dict, user_submitted: User)
     '''
     if user_submitted.gets_notification_emails:
         domain = Site.objects.get_current().domain
+        site_name = Site.objects.get_current().name
         from_email = '{0}@{1}'.format(DO_NOT_REPLY_USERNAME, domain)
 
         send_mail_with_logs(
@@ -281,6 +288,7 @@ def send_your_transfer_did_not_go_through(form_data: dict, user_submitted: User)
                 'form_data': form_data,
                 'archivist_email': ARCHIVIST_EMAIL,
                 'action_date': timezone.now(),
+                'site_name': site_name,
             }
         )
 
@@ -293,6 +301,7 @@ def send_user_activation_email(new_user: User):
         new_user (User): The new user who requested an account
     '''
     domain = Site.objects.get_current().domain
+    site_name = Site.objects.get_current().name
     from_email = '{0}@{1}'.format(DO_NOT_REPLY_USERNAME, domain)
 
     token = account_activation_token.make_token(new_user)
@@ -308,6 +317,7 @@ def send_user_activation_email(new_user: User):
             'base_url': domain,
             'uid': urlsafe_base64_encode(force_bytes(new_user.pk)),
             'token': token,
+            'site_name': site_name,
         }
     )
 
@@ -354,6 +364,7 @@ def send_mail_with_logs(recipients: list, from_email: str, subject, template_nam
         LOGGER.info(msg='FROM: {0}'.format(from_email))
         LOGGER.info(msg='Rendering HTML email from {0}'.format(template_name))
         context['site_domain'] = Site.objects.get_current().domain
+        context['site_name'] = Site.objects.get_current().name
         msg_html = render_to_string(template_name, context=context)
         LOGGER.info('Stripping tags from rendered HTML to create a plaintext email')
         msg_plain = html_to_text(msg_html)
