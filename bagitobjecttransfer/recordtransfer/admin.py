@@ -4,7 +4,8 @@ from pathlib import Path
 
 from django.contrib import admin, messages
 from django.contrib.admin.utils import unquote
-from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.admin import GroupAdmin, UserAdmin
+from django.contrib.auth.models import Group
 from django.db.models import Q
 from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
@@ -694,6 +695,21 @@ class CustomUserAdmin(UserAdmin):
         BagGroupInline,
     ]
 
+    # Fields that would let a user change their own level of access
+    permission_fields = ('is_staff', 'is_superuser', 'groups', 'user_permissions')
+
+    def get_readonly_fields(self, request, obj=None):
+        ''' Prevent a user from editing their own permission-related fields, even
+        though they otherwise have permission to change their own account. Without
+        this, a non-superuser could grant themselves extra groups/permissions.
+        '''
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj and obj == request.user and not request.user.is_superuser:
+            readonly_fields += [
+                field for field in self.permission_fields if field not in readonly_fields
+            ]
+        return readonly_fields
+
     def has_change_permission(self, request, obj=None):
         if not obj:
             return True
@@ -704,7 +720,13 @@ class CustomUserAdmin(UserAdmin):
         return request.user.has_perm('recordtransfer.change_user')
 
     def has_delete_permission(self, request, obj=None):
-        return obj and request.user.is_superuser
+        if request.user.is_superuser:
+            return True
+        if not obj:
+            return request.user.has_perm('recordtransfer.delete_user')
+        if obj.is_staff or obj.is_superuser or obj == request.user:
+            return False
+        return request.user.has_perm('recordtransfer.delete_user')
 
     @method_decorator(sensitive_post_parameters())
     def user_change_password(self, request, id, form_url=''):
@@ -834,3 +856,21 @@ class CustomUserAdmin(UserAdmin):
                 args=(user.pk,),
             )
         )
+
+
+admin.site.unregister(Group)
+
+
+@admin.register(Group)
+class CustomGroupAdmin(GroupAdmin):
+    ''' Admin for the Group model.
+
+    Permissions:
+        - change: Allowed, but non-superusers cannot edit the group's permissions
+    '''
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser and 'permissions' not in readonly_fields:
+            readonly_fields.append('permissions')
+        return readonly_fields
