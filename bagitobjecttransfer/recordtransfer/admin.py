@@ -702,12 +702,19 @@ class CustomUserAdmin(UserAdmin):
         ''' Prevent a user from editing their own permission-related fields, even
         though they otherwise have permission to change their own account. Without
         this, a non-superuser could grant themselves extra groups/permissions.
+
+        Also prevents any non-superuser from granting or revoking superuser status
+        on any account, including their own.
         '''
         readonly_fields = list(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser and 'is_superuser' not in readonly_fields:
+            readonly_fields.append('is_superuser')
         if obj and obj == request.user and not request.user.is_superuser:
             readonly_fields += [
                 field for field in self.permission_fields if field not in readonly_fields
             ]
+        if obj and not request.user.is_superuser and 'user_permissions' not in readonly_fields:
+            readonly_fields.append('user_permissions')
         return readonly_fields
 
     def has_change_permission(self, request, obj=None):
