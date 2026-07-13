@@ -551,7 +551,7 @@ class BagGroupAdmin(ReadOnlyAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return obj and (request.user.is_superuser or request.user.has_perm('recordtransfer.change_baggroup'))
+        return obj and (request.user.is_superuser or request.user.has_perm('recordtransfer.delete_baggroup'))
 
 
 class BagGroupInline(admin.TabularInline):
