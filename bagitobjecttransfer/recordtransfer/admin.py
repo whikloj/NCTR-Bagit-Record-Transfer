@@ -697,7 +697,11 @@ class CustomUserAdmin(UserAdmin):
     def has_change_permission(self, request, obj=None):
         if not obj:
             return True
-        return obj and (request.user.is_superuser or obj == request.user)
+        if request.user.is_superuser or obj == request.user:
+            return True
+        if obj.is_superuser:
+            return False
+        return request.user.has_perm('recordtransfer.change_user')
 
     def has_delete_permission(self, request, obj=None):
         return obj and request.user.is_superuser
