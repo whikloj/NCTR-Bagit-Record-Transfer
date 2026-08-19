@@ -93,6 +93,7 @@ def bag_user_files(form_data: dict, user_submitted: User):
         else:
             LOGGER.warning(msg='Could not find "{0}" BagGroup'.format(group.name))
 
+    create_downloadable_bag.delay(new_submission, user_submitted)
     LOGGER.info('Sending transfer success email to administrators')
     send_bag_creation_success.delay(form_data, new_submission)
     LOGGER.info('Sending thank you email to user')
@@ -100,35 +101,35 @@ def bag_user_files(form_data: dict, user_submitted: User):
 
 
 @django_rq.job
-def create_downloadable_bag(submission: Submission, user_triggered: User):
-    ''' Create a zipped bag that a user can download using a Job model.
+def create_downloadable_bag(new_submission: Submission, user_submitted: User):
+    """ Create a zipped bag that a user can download using a Job model.
 
     Args:
-        submission (Submission): The submission to zip up for users to download
-        user_triggered (User): The user who triggered this new Job creation
-    '''
-    LOGGER.info(msg='Creating zipped submission from {0}'.format(str(submission.location)))
+        new_submission (Submission): The submission to zip up for users to download
+        user_submitted (User): The user who triggered this new Job creation
+    """
+    LOGGER.info(msg='Creating zipped submission from {0}'.format(str(new_submission.location)))
 
     description = (
         '{user} triggered this job to generate a download link for the submission '
         '{name}'
-    ).format(user=str(user_triggered), name=submission.bag_name)
+    ).format(user=str(user_submitted), name=new_submission.bag_name)
 
-    if not os.path.exists(submission.location):
-        LOGGER.info(msg=f'No submission exists at {submission.location}, creating it now.')
-        result = submission.make_bag(algorithms=BAG_CHECKSUMS)
+    if not os.path.exists(new_submission.location):
+        LOGGER.info(msg=f'No submission exists at {new_submission.location}, creating it now.')
+        result = new_submission.make_bag(algorithms=BAG_CHECKSUMS)
         if len(result['missing_files']) != 0 or not result['bag_created'] or not result['bag_valid'] or \
                 result['time_created'] is None:
             # Because we didn't generate the submission directory, exit.
             return
 
     new_job = Job(
-        name=f'Generate Download Link for {str(submission)}',
+        name=f'Generate Download Link for {str(new_submission)}',
         description=description,
         start_time=timezone.now(),
-        user_triggered=user_triggered,
+        user_triggered=user_submitted,
         job_status=Job.JobStatus.NOT_STARTED,
-        submission=submission
+        submission=new_submission
     )
     new_job.save()
 
@@ -140,11 +141,11 @@ def create_downloadable_bag(submission: Submission, user_triggered: User):
         LOGGER.info(msg='Zipping directory to an in-memory file ...')
         zipf = BytesIO()
         zipped_bag = zipfile.ZipFile(zipf, 'w', zipfile.ZIP_DEFLATED, False)
-        zip_directory(submission.location, zipped_bag)
+        zip_directory(new_submission.location, zipped_bag)
         zipped_bag.close()
         LOGGER.info(msg='Zipped directory successfully')
 
-        file_name = f'{submission.bag_name}.zip'
+        file_name = f'{new_submission.bag_name}.zip'
         LOGGER.info(msg='Saving zip file as {0} ...'.format(file_name))
         new_job.attached_file.save(file_name, ContentFile(zipf.getvalue()), save=True)
         LOGGER.info(msg='Saved file successfully')
@@ -161,9 +162,9 @@ def create_downloadable_bag(submission: Submission, user_triggered: User):
     finally:
         if zipf is not None:
             zipf.close()
-        if os.path.exists(submission.location):
+        if os.path.exists(new_submission.location):
             LOGGER.info(msg="Removing submission from disk after zip generation.")
-            shutil.rmtree(submission.location)
+            shutil.rmtree(new_submission.location)
 
 
 @django_rq.job

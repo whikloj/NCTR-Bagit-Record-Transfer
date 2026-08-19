@@ -18,10 +18,10 @@ from django.utils.translation import gettext
 from django.views.decorators.debug import sensitive_post_parameters
 
 from recordtransfer.forms import InlineBagGroupForm, SubmissionForm, \
-    InlineSubmissionForm, AppraisalForm, InlineAppraisalFormSet, UploadSessionForm, \
+    InlineSubmissionForm, UploadSessionForm, \
     UploadedFileForm, InlineUploadedFileForm
-from recordtransfer.jobs import create_downloadable_bag, send_user_account_updated, send_user_activation_email
-from recordtransfer.models import User, UploadSession, UploadedFile, BagGroup, Appraisal, \
+from recordtransfer.jobs import send_user_account_updated, send_user_activation_email, create_downloadable_bag
+from recordtransfer.models import User, UploadSession, UploadedFile, BagGroup, \
     Submission, Job
 from recordtransfer.settings import ALLOW_BAG_CHANGES
 
@@ -186,110 +186,6 @@ class UploadSessionAdmin(ReadOnlyAdmin):
     ]
 
 
-@admin.register(Appraisal)
-class AppraisalAdmin(admin.ModelAdmin):
-    ''' Admin for the Appraisal model
-
-    Permissions:
-        - add: Not allowed (must be done from the Appraisal inline)
-        - change: Allowed if editor created the appraisal
-        - delete: Allowed if editor created the appraisal, or if editor is a superuser
-    '''
-    form = AppraisalForm
-
-    actions = [
-        'delete_selected'
-    ]
-
-    list_display = [
-        'appraisal_type',
-        'appraisal_date',
-        linkify('user'),
-        linkify('submission'),
-    ]
-
-    ordering = [
-        '-appraisal_date',
-    ]
-
-    readonly_fields = [
-        'user',
-        'appraisal_date'
-    ]
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return obj and request.user == obj.user
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser or (obj and request.user == obj.user)
-
-    def delete_queryset(self, request, queryset):
-        ''' Delete the Appraisals from the Appraisals' Submissions' Bags (if Bag
-        editing is allowed)
-        '''
-        # Find appraisals in queryset with a submission and sort them by submission ID
-        appraisals_with_bags = queryset\
-            .filter(~Q(submission=None))\
-            .filter(~Q(submission__bag=None))\
-            .order_by('submission__bag__id')
-
-        # save and update each Bag only once
-        if appraisals_with_bags and ALLOW_BAG_CHANGES:
-            prev_bag = None
-            for appraisal in appraisals_with_bags:
-                curr_bag = appraisal.submission.bag
-                curr_bag.remove_appraisal(request.user, appraisal, commit=True)
-                prev_bag = curr_bag
-
-        elif appraisals_with_bags:
-            messages.warning(request, gettext(
-                'One or more appraisals were deleted, an operation that would normally have '
-                "affected the Bags associated with the appraisals' submissions', but "
-                'ALLOW_BAG_CHANGES is OFF, so no changes were made to the Bag(s)'
-            ))
-
-        super().delete_queryset(request, queryset)
-
-
-class AppraisalInline(admin.TabularInline):
-    ''' Inline admin for the Appraisal model. Used to edit Appraisals associated
-    with a Submission. Deletions are not allowed.
-
-    Permissions:
-        - add: Allowed
-        - change: Not allowed - go to Appraisal page for change ability
-        - delete: Not allowed - go to Appraisal page for delete ability
-    '''
-    model = Appraisal
-    max_num = 64
-    extra = 0
-    show_change_link = True
-
-    form = AppraisalForm
-    formset = InlineAppraisalFormSet
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.can_delete = False
-
-    def has_add_permission(self, request, obj=None):
-        return True
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
-    def get_formset(self, request, obj=None, **kwargs):
-        formset = super().get_formset(request, obj, **kwargs)
-        formset.request = request
-        return formset
-
-
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
     ''' Admin for the Submission model. Adds a view to view the transfer report
@@ -306,7 +202,6 @@ class SubmissionAdmin(admin.ModelAdmin):
     form = SubmissionForm
 
     inlines = [
-        AppraisalInline,
     ]
 
     actions = [
@@ -354,17 +249,11 @@ class SubmissionAdmin(admin.ModelAdmin):
             path('<path:object_id>/report/',
                  self.admin_site.admin_view(self.view_report),
                  name='%s_%s_report' % info),
-            path('<path:object_id>/zip/',
-                 self.admin_site.admin_view(self.create_zipped_bag),
-                 name='%s_%s_zip' % info),
-            path('<path:object_id>/rezip/',
-                 self.admin_site.admin_view(self.recreate_zipped_bag),
-                 name='%s_%s_rezip' % info),
         ]
         return report_url + urls
 
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
-        job = Job.objects.get_queryset().filter(Q(user_triggered=request.user) & Q(submission_id=object_id)).first()
+        job = Job.objects.get_queryset().filter(Q(submission_id=object_id)).first()
         if extra_context is None:
             extra_context = {}
         extra_context['has_generated_bag'] = job is not None
@@ -390,69 +279,30 @@ class SubmissionAdmin(admin.ModelAdmin):
         url = reverse('admin:index', current_app=self.admin_site.name)
         return HttpResponseRedirect(url)
 
-    def save_related(self, request, form, formsets, change):
-        ''' Update Bag in case an Appraisal is added. Deleting inline Appraisals
-        is not allowed, so the case of deleting from the formset is not handled.
-        '''
-        for formset in formsets:
-            if formset.model != Appraisal:
-                continue
-
-            obj = form.instance
-            appraisals = formset.save(commit=False)
-
-            if not appraisals:
-                continue
-
-            for appraisal in appraisals:
-                appraisal.user = request.user
-                appraisal.save()
-                if ALLOW_BAG_CHANGES:
-                    pass
-
-            if ALLOW_BAG_CHANGES:
-                obj.save()
-            else:
-                messages.warning(request, gettext(
-                    'A change to the appraisals was made to this submission that would normally '
-                    "have affected the Bag's submission-info.txt, but ALLOW_BAG_CHANGES is OFF, so no "
-                    'change was made to the Bag'
-                ))
-
-            formset.save_m2m()
-        super().save_related(request, form, formsets, change)
-
     def save_model(self, request, obj, form, change):
         ''' Update Bag in case the accession identifier or level of detail
         changes.
         '''
-        bag_changes = change and any(
-            f in form.changed_data for f in ('accession_identifier', 'level_of_detail')
-        )
 
-        if not bag_changes:
-            super().save_model(request, obj, form, change)
+        if not change:
+            # Do nothing because nothing changed.
             return
+        super().save_model(request, obj, form, change)
 
         if not ALLOW_BAG_CHANGES:
             messages.warning(request, gettext(
                 "A change was made to this submission that would have affected the Bag's "
                 'submission-info.txt, but ALLOW_BAG_CHANGES is OFF, so no change was made to the Bag'
             ))
-            super().save_model(request, obj, form, change)
-            return
-
-        obj.bag.save()
-        super().save_model(request, obj, form, change)
 
     def recreate_zipped_bag(self, request, object_id):
         """ Remove the existing submission for this submission and user, then recreate it.
-
         Args:
             request: The originating request
             object_id: The ID for the submission
         """
-        job = Job.objects.filter(Q(submission_id=object_id) & Q(user_triggered=request.user)).first()
+
+        job = Job.objects.filter(Q(submission_id=object_id)).first()
         if job:
             job.delete()
         return self.create_zipped_bag(request, object_id)
@@ -487,7 +337,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         self.message_user(request, msg, messages.WARNING)
         admin_url = reverse('admin:index', current_app=self.admin_site.name)
         return HttpResponseRedirect(admin_url)
-
 
 class SubmissionInline(admin.TabularInline):
     ''' Inline admin for the Appraisal model. Used to edit Appraisals associated
@@ -812,12 +661,15 @@ class CustomUserAdmin(UserAdmin):
         ] + super().get_urls()
 
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
-        user = User.objects.get(pk=object_id)
-        if (request.user.is_superuser or request.user.is_staff) and not user.confirmed_email:
-            if extra_context is None:
-                extra_context = {}
-            if user is not None:
-                extra_context['resend_confirmation'] = user.get_resend_confirmation_uri()
+        try:
+            user = User.objects.get(pk=object_id)
+            if (request.user.is_superuser or request.user.is_staff) and not user.confirmed_email:
+                if extra_context is None:
+                    extra_context = {}
+                if user is not None:
+                    extra_context['resend_confirmation'] = user.get_resend_confirmation_uri()
+        except User.DoesNotExist:
+            pass
         return super().changeform_view(request, object_id, form_url, extra_context)
 
     def resend_confirmation_email(self, request, user_id):

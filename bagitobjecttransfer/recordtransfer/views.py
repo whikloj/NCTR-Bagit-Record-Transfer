@@ -1,10 +1,6 @@
 import logging
 import os
-import shutil
-import socket
-import struct
 import tempfile
-import uuid
 from typing import Union
 
 import clamd

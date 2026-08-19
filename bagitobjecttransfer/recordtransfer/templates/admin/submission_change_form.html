@@ -18,11 +18,8 @@
 {% block submit_buttons_bottom %}
     {{ block.super }}
     <div class="submit-row">
-        {% if original.upload_session and has_generated_bag %}
-        <a href="{{ original.get_admin_regen_zip_url }}">{% trans "Click here to re-generate a downloadable bag" %}</a> |
+        {% if has_generated_bag %}
         <a href="{{ generated_bag_url }}">{% trans "Click here to download the bag" %}</a>
-        {% elif original.upload_session %}
-        <a href="{{ original.get_admin_zip_url }}">{% trans "Click here to create a downloadable bag" %}</a>
         {% endif %}
     </div>
 {% endblock %}
