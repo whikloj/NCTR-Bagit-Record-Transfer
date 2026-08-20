@@ -259,6 +259,8 @@ class SubmissionAdmin(admin.ModelAdmin):
         extra_context['has_generated_bag'] = job is not None
         if job is not None:
             extra_context['generated_bag_url'] = job.get_admin_download_url()
+        else:
+            create_downloadable_bag.delay(Submission.objects.get(id=object_id), request.user)
         return super().changeform_view(request, object_id, form_url, extra_context)
 
     def view_report(self, request, object_id):

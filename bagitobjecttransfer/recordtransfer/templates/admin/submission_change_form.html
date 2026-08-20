@@ -20,6 +20,8 @@
     <div class="submit-row">
         {% if has_generated_bag %}
         <a href="{{ generated_bag_url }}">{% trans "Click here to download the bag" %}</a>
+        {% else %}
+        <p>{% trans "The bag is being generated. Please wait a few seconds and reload this page to access it." %}</p>
         {% endif %}
     </div>
 {% endblock %}
