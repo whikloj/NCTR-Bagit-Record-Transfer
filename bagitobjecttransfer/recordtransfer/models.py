@@ -33,6 +33,16 @@ class User(AbstractUser):
     # Needed or you get errors accessing the _meta.app_label early in the app's lifecycle
     objects = UserManager()
 
+    def __str__(self):
+        return self.get_name()
+
+    def get_name(self):
+        if self.first_name or self.last_name:
+            return self.get_full_name()
+        if self.username:
+            return str(self.username)
+        return str(self.email)
+
     def get_full_name(self):
         return self.first_name + ' ' + self.last_name
 
